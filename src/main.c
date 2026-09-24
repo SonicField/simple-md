@@ -258,11 +258,13 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
         }
 
-        md_key_t key = md_terminal_read_key();
+        md_input_event_t event = md_terminal_read_event();
+        md_key_t key = event.key;
         int need_draw = 1;
 
         switch (key) {
-        case MD_KEY_QUIT:
+        case MD_KEY_ESCAPE:
+        case MD_KEY_EOF:
             goto done;
         case MD_KEY_UP:
             md_viewport_scroll_up(&vs, 1);
@@ -288,16 +290,28 @@ int main(int argc, char *argv[]) {
         case MD_KEY_LEFT:
             md_viewport_pan_left(&vs);
             break;
-        case MD_KEY_HELP:
-            md_viewport_draw_help(&vs);
-            /* Wait for Enter to return */
-            while (1) {
-                md_key_t hk = md_terminal_read_key();
-                if (hk == MD_KEY_ENTER || hk == MD_KEY_HELP || hk == MD_KEY_QUIT)
-                    break;
-            }
-            break;
         case MD_KEY_ENTER:
+        case MD_KEY_BACKSPACE:
+            need_draw = 0;
+            break;
+        case MD_KEY_TEXT:
+            if (event.byte == 'q' || event.byte == 'Q') goto done;
+            if (event.byte == 'h' || event.byte == 'H' || event.byte == '?') {
+                md_viewport_draw_help(&vs);
+                while (1) {
+                    md_input_event_t help_event = md_terminal_read_event();
+                    if (help_event.key == MD_KEY_ENTER ||
+                        help_event.key == MD_KEY_ESCAPE ||
+                        help_event.key == MD_KEY_EOF ||
+                        (help_event.key == MD_KEY_TEXT &&
+                         (help_event.byte == 'h' || help_event.byte == 'H' ||
+                          help_event.byte == '?' || help_event.byte == 'q' ||
+                          help_event.byte == 'Q'))) {
+                        break;
+                    }
+                }
+                break;
+            }
             need_draw = 0;
             break;
         default:

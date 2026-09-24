@@ -16,11 +16,18 @@ typedef enum {
     MD_KEY_PAGE_DOWN,
     MD_KEY_HOME,
     MD_KEY_END,
-    MD_KEY_HELP,
     MD_KEY_ENTER,
-    MD_KEY_QUIT,
+    MD_KEY_ESCAPE,
+    MD_KEY_BACKSPACE,
+    MD_KEY_TEXT,
+    MD_KEY_EOF,
     MD_KEY_UNKNOWN
 } md_key_t;
+
+typedef struct {
+    md_key_t key;
+    unsigned char byte; /* Set only for MD_KEY_TEXT. */
+} md_input_event_t;
 
 /* Enter raw mode: alternate screen, hide cursor, raw termios.
  * Installs SIGWINCH handler and atexit cleanup.
@@ -31,8 +38,8 @@ int md_terminal_enter_raw(void);
  * Safe to call multiple times. */
 void md_terminal_leave_raw(void);
 
-/* Read a single keypress (blocking). Returns the key type. */
-md_key_t md_terminal_read_key(void);
+/* Read one input event. UTF-8 text is returned one byte at a time. */
+md_input_event_t md_terminal_read_event(void);
 
 /* Get terminal dimensions. Returns 0 on success, -1 on failure. */
 int md_terminal_get_size(int *rows, int *cols);

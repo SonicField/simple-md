@@ -113,8 +113,9 @@ void md_terminal_leave_raw(void)
     }
 }
 
-md_key_t md_terminal_read_key(void)
+md_input_event_t md_terminal_read_event(void)
 {
+    md_input_event_t event = { MD_KEY_UNKNOWN, 0 };
     unsigned char c;
     ssize_t n;
 
@@ -123,23 +124,27 @@ md_key_t md_terminal_read_key(void)
     for (;;) {
         n = read(fd, &c, 1);
         if (n == 1) break;
-        if (n == 0) return MD_KEY_QUIT;  /* EOF */
+        if (n == 0) {
+            event.key = MD_KEY_EOF;
+            return event;
+        }
         /* n == -1: check if interrupted by signal (e.g. SIGWINCH) */
         if (errno == EINTR) {
-            if (resize_flag) return MD_KEY_UNKNOWN; /* let main loop handle resize */
+            if (resize_flag) return event; /* let main loop handle resize */
             continue; /* retry */
         }
-        return MD_KEY_QUIT; /* real error */
+        return event; /* real error */
     }
 
-    if (c == 'h' || c == 'H' || c == '?')
-        return MD_KEY_HELP;
+    if (c == '\r' || c == '\n') {
+        event.key = MD_KEY_ENTER;
+        return event;
+    }
 
-    if (c == 'q' || c == 'Q')
-        return MD_KEY_QUIT;
-
-    if (c == '\r' || c == '\n')
-        return MD_KEY_ENTER;
+    if (c == 0x7f || c == '\b') {
+        event.key = MD_KEY_BACKSPACE;
+        return event;
+    }
 
     if (c == 0x1b) {
         /* Temporarily switch to non-blocking reads (100ms timeout)
@@ -156,7 +161,7 @@ md_key_t md_terminal_read_key(void)
         md_key_t result = MD_KEY_UNKNOWN;
 
         if (read(fd, &seq[0], 1) != 1) {
-            result = MD_KEY_QUIT;  /* bare ESC — exit */
+            result = MD_KEY_ESCAPE;  /* bare ESC */
         } else if (seq[0] == '[' && read(fd, &seq[1], 1) == 1) {
             unsigned char tilde;
             switch (seq[1]) {
@@ -187,10 +192,15 @@ md_key_t md_terminal_read_key(void)
         }
 
         tcsetattr(fd, TCSANOW, &old_t);
-        return result;
+        event.key = result;
+        return event;
     }
 
-    return MD_KEY_UNKNOWN;
+    if (c >= 0x20 || c >= 0x80) {
+        event.key = MD_KEY_TEXT;
+        event.byte = c;
+    }
+    return event;
 }
 
 int md_terminal_get_size(int *rows, int *cols)
