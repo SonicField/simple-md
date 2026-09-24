@@ -65,3 +65,16 @@ Clang was unavailable in the extraction environment, so the configured Clang
 CI job was not run locally. An optional Valgrind run was inconclusive because
 the local wrapper stalled on the first test; ASan/UBSan is the completed
 dynamic-analysis result.
+
+GCC's optional `-fanalyzer` mode is not currently a release gate. It reports
+possible unchecked allocation failures in inherited parser and table-renderer
+paths. These paths passed the runtime sanitizer suite, but allocation-failure
+handling remains follow-up hardening work.
+
+## Post-extraction feature verification
+
+Version 0.2.0 adds automatic paging, plain redirected output, colour control,
+search navigation, a heading outline, and OSC 8 links. Unit tests cover the
+search and outline models, rendering metadata, output modes, and hostile link
+targets. The PTY suite exercises the actual binary and terminal lifecycle for
+each interactive feature.

@@ -11,9 +11,12 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 ./simple-md --help >"$tmp_dir/help"
 grep -Fq 'Usage: simple-md' "$tmp_dir/help" || fail "--help omitted usage"
+grep -Fq -- '--pager=MODE' "$tmp_dir/help" || fail "--help omitted pager modes"
+grep -Fq -- '--no-color' "$tmp_dir/help" || fail "--help omitted color control"
+grep -Fq -- '--links=MODE' "$tmp_dir/help" || fail "--help omitted link modes"
 
 ./simple-md --version >"$tmp_dir/version"
-grep -Eq '^simple-md [0-9]+\.[0-9]+\.[0-9]+$' "$tmp_dir/version" ||
+grep -Fxq 'simple-md 0.2.0' "$tmp_dir/version" ||
     fail "--version has an unexpected format"
 
 if ./simple-md --width=0 </dev/null >"$tmp_dir/out" 2>"$tmp_dir/err"; then

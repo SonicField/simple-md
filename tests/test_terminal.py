@@ -146,10 +146,25 @@ def main() -> int:
         b"q", extra_args=("--pager=always", "--links=never")
     )
     assert b"\x1b]8;;" not in unlinked_output, "--links=never emitted OSC 8"
+    dumb_output = run_viewer(
+        b"q", extra_args=("--pager=always",), env_extra={"TERM": "dumb"}
+    )
+    assert b"\x1b]8;;" not in dumb_output, "TERM=dumb unexpectedly emitted OSC 8"
+    forced_link_output = run_viewer(
+        b"q",
+        extra_args=("--pager=always", "--links=always"),
+        env_extra={"TERM": "dumb"},
+    )
+    assert b"\x1b]8;;https://example.com/docs\x1b\\" in forced_link_output, (
+        "--links=always did not override TERM=dumb"
+    )
     search_output = run_viewer(b"/Line 20\nq", fixture=LONG_FIXTURE)
     search_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", search_output)
     assert b"/Line 20" in search_text, "search query status was not rendered"
     assert b"Line 20" in search_text, "search did not reveal its first match"
+    assert re.search(rb"\x1b\[[0-9;]*7[0-9;]*mLine", search_output), (
+        "current search match was not highlighted"
+    )
     next_output = run_viewer(b"/Line\nnq", fixture=LONG_FIXTURE)
     next_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", next_output)
     assert b"2/25" in next_text, "n did not advance to the second match"

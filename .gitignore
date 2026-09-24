@@ -5,3 +5,5 @@
 *.gcda
 *.gcno
 *.gcov
+__pycache__/
+*.pyc

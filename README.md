@@ -35,6 +35,7 @@ simple-md README.md
 simple-md < README.md
 cat README.md | simple-md
 simple-md --width=100 document.md
+agent-command | simple-md
 ```
 
 Options:
@@ -76,6 +77,10 @@ Markdown links use OSC 8 hyperlinks on interactive terminals. Use
 `--links=never` if a terminal does not support them, or `--links=always` to
 override automatic detection. Link targets containing terminal control bytes
 are rejected rather than emitted.
+
+Search operates on rendered text rather than Markdown punctuation. It is
+ASCII case-insensitive; non-ASCII UTF-8 bytes are matched exactly. Search
+results wrap at either end of the document.
 
 ## Markdown support
 
@@ -126,3 +131,5 @@ The extraction history and its reproducible checks are documented in
 The filtered Git history retains the original authorship and commit messages.
 
 Released under the MIT License. See [`LICENSE`](LICENSE).
+
+Release notes are in [`CHANGELOG.md`](CHANGELOG.md).

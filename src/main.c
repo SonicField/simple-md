@@ -43,9 +43,12 @@ static void print_usage(FILE *out) {
           "       simple-md --help\n"
           "\n"
           "Read Markdown from FILE, or from standard input when FILE is '-' or omitted.\n"
-          "Pager MODE is auto, always, or never (default: auto).\n"
-          "Set --no-color or NO_COLOR to suppress terminal styling.\n"
-          "Link MODE is auto, always, or never (default: auto).\n"
+          "  --width=COLUMNS  Override the detected terminal width\n"
+          "  --pager=MODE     Use auto, always, or never (default: auto)\n"
+          "  --no-color       Suppress styling; also honored via NO_COLOR\n"
+          "  --links=MODE     Use auto, always, or never (default: auto)\n"
+          "  -V, --version    Show the version\n"
+          "  -h, --help       Show this help\n"
           "Press q or Escape to quit.\n", out);
 }
 
@@ -183,7 +186,7 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if (!options_done && (strcmp(arg, "-V") == 0 ||
                                      strcmp(arg, "--version") == 0)) {
-            puts("simple-md 0.1.0");
+            puts("simple-md 0.2.0");
             return 0;
         } else if (!options_done && strncmp(arg, "--width=", 8) == 0) {
             if (parse_width(arg + 8, &force_cols) != 0) {
