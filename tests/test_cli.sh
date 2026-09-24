@@ -26,6 +26,12 @@ if ./simple-md --unknown </dev/null >"$tmp_dir/out" 2>"$tmp_dir/err"; then
 fi
 grep -Fq 'unknown option' "$tmp_dir/err" || fail "unknown option was not explained"
 
+if ./simple-md --pager=sometimes </dev/null >"$tmp_dir/out" 2>"$tmp_dir/err"; then
+    fail "invalid pager mode unexpectedly succeeded"
+fi
+grep -Fq 'invalid pager mode' "$tmp_dir/err" ||
+    fail "invalid pager mode was not explained"
+
 if ./simple-md "$tmp_dir/missing.md" >"$tmp_dir/out" 2>"$tmp_dir/err"; then
     fail "missing file unexpectedly succeeded"
 fi

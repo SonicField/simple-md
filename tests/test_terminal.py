@@ -18,9 +18,16 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BINARY = ROOT / "simple-md"
 FIXTURE = ROOT / "tests" / "fixtures" / "sample.md"
+LONG_FIXTURE = ROOT / "tests" / "fixtures" / "long.md"
 
 
-def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
+def run_viewer(
+    quit_key=None,
+    use_stdin: bool = False,
+    fixture: pathlib.Path = FIXTURE,
+    extra_args=(),
+    expect_pager: bool = True,
+) -> bytes:
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 72, 0, 0))
 
@@ -28,9 +35,9 @@ def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
         os.setsid()
         fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
 
-    command = [str(BINARY), "--width=72"]
+    command = [str(BINARY), "--width=72", *extra_args]
     if not use_stdin:
-        command.append(str(FIXTURE))
+        command.append(str(fixture))
 
     process = subprocess.Popen(
         command,
@@ -45,7 +52,7 @@ def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
     os.close(slave)
     if use_stdin:
         assert process.stdin is not None
-        process.stdin.write(FIXTURE.read_bytes())
+        process.stdin.write(fixture.read_bytes())
         process.stdin.close()
 
     output = bytearray()
@@ -65,7 +72,7 @@ def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
                     break
                 output.extend(chunk)
 
-            if not key_sent and b"\x1b[?1049h" in output:
+            if quit_key is not None and not key_sent and b"\x1b[?1049h" in output:
                 os.write(master, quit_key)
                 key_sent = True
 
@@ -81,25 +88,33 @@ def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
 
     return_code = process.wait(timeout=1)
     plain_output = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", output)
-    assert key_sent, "viewer never entered the alternate screen"
     assert return_code == 0, f"viewer exited with status {return_code}"
     assert b"Simple Markdown" in plain_output, "rendered heading was not observed"
-    assert "┌".encode() in output, "rendered table border was not observed"
-    assert b"Line 1/" in plain_output, "viewport status was not observed"
-    assert output.count(b"\x1b[?1049h") == 1, (
-        "alternate screen must be entered exactly once"
-    )
-    assert output.count(b"\x1b[?1049l") == 1, (
-        "alternate screen must be restored exactly once"
-    )
-    assert output.count(b"\x1b[?25l") == 1, "cursor must be hidden exactly once"
-    assert output.count(b"\x1b[?25h") == 1, "cursor must be restored exactly once"
+    if fixture == FIXTURE:
+        assert "┌".encode() in output, "rendered table border was not observed"
+    if expect_pager:
+        assert key_sent, "viewer never accepted the requested quit key"
+        assert b"Line 1/" in plain_output, "viewport status was not observed"
+        assert output.count(b"\x1b[?1049h") == 1, (
+            "alternate screen must be entered exactly once"
+        )
+        assert output.count(b"\x1b[?1049l") == 1, (
+            "alternate screen must be restored exactly once"
+        )
+        assert output.count(b"\x1b[?25l") == 1, "cursor must be hidden exactly once"
+        assert output.count(b"\x1b[?25h") == 1, "cursor must be restored exactly once"
+    else:
+        assert b"\x1b[?1049h" not in output, "output unexpectedly opened pager"
+        assert b"\x1b[?1049l" not in output, "output unexpectedly closed pager"
     return bytes(output)
 
 
 def main() -> int:
-    run_viewer(b"q")
-    run_viewer(b"\x1b", use_stdin=True)
+    run_viewer(b"q", extra_args=("--pager=always",))
+    run_viewer(b"\x1b", use_stdin=True, extra_args=("--pager=always",))
+    run_viewer(expect_pager=False)
+    run_viewer(b"q", fixture=LONG_FIXTURE)
+    run_viewer(fixture=LONG_FIXTURE, extra_args=("--pager=never",), expect_pager=False)
     print("test_terminal: PASS")
     return 0
 

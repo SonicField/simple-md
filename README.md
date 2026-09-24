@@ -41,6 +41,7 @@ Options:
 
 ```text
 --width=COLUMNS  Override the detected terminal width (1–10000)
+--pager=MODE     Select auto, always, or never (default: auto)
 -h, --help       Show usage
 -V, --version    Show the version
 ```
@@ -55,6 +56,11 @@ Navigation:
 | Left / Right | Pan wide tables and code blocks |
 | `h` / `?` | Show help |
 | `q` / Escape | Quit |
+
+In automatic mode, documents that fit in the terminal are printed directly;
+longer documents open in the interactive pager. Use `--pager=always` when you
+want interactive features for a short document, or `--pager=never` to retain
+the rendered output in terminal scrollback.
 
 ## Markdown support
 

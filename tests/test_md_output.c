@@ -26,13 +26,25 @@ int main(void) {
     if (md_output_write_plain(output, &layout) != 0) fail("write failed");
     rewind(output);
 
-    char actual[32] = {0};
+    char actual[256] = {0};
     size_t length = fread(actual, 1, sizeof(actual) - 1, output);
     fclose(output);
 
     if (length != 13 || strcmp(actual, "Hello world\n\n") != 0)
         fail("plain output did not preserve lines and remove styling");
     if (strchr(actual, '\033') != NULL) fail("plain output contained escape bytes");
+
+    output = tmpfile();
+    if (output == NULL) fail("second tmpfile failed");
+    if (md_output_write_styled(output, &layout) != 0) fail("styled write failed");
+    rewind(output);
+    memset(actual, 0, sizeof(actual));
+    length = fread(actual, 1, sizeof(actual) - 1, output);
+    fclose(output);
+    if (length == 0 || strstr(actual, "\033[") == NULL)
+        fail("styled output omitted SGR sequences");
+    if (strstr(actual, "Hello") == NULL || strstr(actual, "world") == NULL)
+        fail("styled output omitted text");
 
     puts("test_md_output: PASS");
     return 0;

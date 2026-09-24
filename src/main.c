@@ -22,11 +22,18 @@
 #include <string.h>
 #include <unistd.h>
 
+typedef enum {
+    PAGER_AUTO,
+    PAGER_ALWAYS,
+    PAGER_NEVER
+} pager_mode_t;
+
 static void print_usage(FILE *out) {
-    fputs("Usage: simple-md [--width=COLUMNS] [FILE]\n"
+    fputs("Usage: simple-md [--width=COLUMNS] [--pager=MODE] [FILE]\n"
           "       simple-md --help\n"
           "\n"
           "Read Markdown from FILE, or from standard input when FILE is '-' or omitted.\n"
+          "Pager MODE is auto, always, or never (default: auto).\n"
           "Press q or Escape to quit.\n", out);
 }
 
@@ -90,6 +97,7 @@ static char *read_stream(FILE *stream) {
 
 int main(int argc, char *argv[]) {
     int force_cols = 0;
+    pager_mode_t pager_mode = PAGER_AUTO;
     const char *input_path = NULL;
     int options_done = 0;
 
@@ -108,6 +116,15 @@ int main(int argc, char *argv[]) {
         } else if (!options_done && strncmp(arg, "--width=", 8) == 0) {
             if (parse_width(arg + 8, &force_cols) != 0) {
                 fprintf(stderr, "simple-md: invalid width: %s\n", arg + 8);
+                return 2;
+            }
+        } else if (!options_done && strncmp(arg, "--pager=", 8) == 0) {
+            const char *mode = arg + 8;
+            if (strcmp(mode, "auto") == 0) pager_mode = PAGER_AUTO;
+            else if (strcmp(mode, "always") == 0) pager_mode = PAGER_ALWAYS;
+            else if (strcmp(mode, "never") == 0) pager_mode = PAGER_NEVER;
+            else {
+                fprintf(stderr, "simple-md: invalid pager mode: %s\n", mode);
                 return 2;
             }
         } else if (!options_done && arg[0] == '-' && strcmp(arg, "-") != 0) {
@@ -149,7 +166,13 @@ int main(int argc, char *argv[]) {
 
     /* Redirected output must remain useful in pipelines and must never wait
      * for terminal input. */
-    if (!isatty(STDOUT_FILENO)) {
+    int output_is_tty = isatty(STDOUT_FILENO);
+    if (!output_is_tty) {
+        if (pager_mode == PAGER_ALWAYS) {
+            fprintf(stderr, "simple-md: cannot page when output is not a terminal\n");
+            md_block_destroy(doc);
+            return 1;
+        }
         int cols = force_cols > 0 ? force_cols : 80;
         md_layout_t *plain_layout = md_render(doc, cols);
         int write_status = md_output_write_plain(stdout, plain_layout);
@@ -162,15 +185,33 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int rows = 24;
+    int cols = 80;
+    md_terminal_get_size(&rows, &cols);
+    if (force_cols > 0) cols = force_cols;
+
+    md_layout_t *layout = md_render(doc, cols);
+    if (pager_mode == PAGER_NEVER ||
+        (pager_mode == PAGER_AUTO && layout->line_count <= rows - 1)) {
+        int write_status = md_output_write_styled(stdout, layout);
+        md_layout_destroy(layout);
+        md_block_destroy(doc);
+        if (write_status != 0) {
+            fprintf(stderr, "simple-md: failed to write output\n");
+            return 1;
+        }
+        return 0;
+    }
+
     /* 3. Enter raw mode first (opens /dev/tty for correct terminal queries) */
     if (md_terminal_enter_raw() != 0) {
         fprintf(stderr, "simple-md: failed to enter raw mode\n");
+        md_layout_destroy(layout);
         md_block_destroy(doc);
         return 1;
     }
 
     /* 4. Get terminal size (now uses /dev/tty via tty_fd) */
-    int rows, cols;
     if (md_terminal_get_size(&rows, &cols) != 0) {
         rows = 24;
         cols = 80;
@@ -178,8 +219,9 @@ int main(int argc, char *argv[]) {
 
     if (force_cols > 0) cols = force_cols;
 
-    /* 5. Render AST to display lines at actual terminal width */
-    md_layout_t *layout = md_render(doc, cols);
+    /* 5. Re-render if entering raw mode changed the detected width. */
+    md_layout_destroy(layout);
+    layout = md_render(doc, cols);
 
     /* 6. Initialize viewport and draw initial screen */
     md_view_state_t vs;

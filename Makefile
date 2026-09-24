@@ -61,7 +61,8 @@ $(BUILD_DIR)/test_md_highlight: tests/test_md_highlight.c $(HIGHLIGHT_SOURCES) \
 	src/md_style.c src/term_style.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
-$(BUILD_DIR)/test_md_output: tests/test_md_output.c src/md_output.c | $(BUILD_DIR)
+$(BUILD_DIR)/test_md_output: tests/test_md_output.c src/md_output.c \
+	src/term_style.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 unit: $(TEST_BINS)
