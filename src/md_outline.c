@@ -1,4 +1,5 @@
 #include "md_outline.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 
 #include <stdlib.h>
@@ -6,9 +7,7 @@
 
 static void append_text(char **buffer, size_t *length, const char *text) {
     size_t addition = strlen(text);
-    char *grown = realloc(*buffer, *length + addition + 1);
-    ASSERT_MSG(grown != NULL, "md_outline: failed to grow title to %zu bytes",
-               *length + addition + 1);
+    char *grown = sm_realloc(*buffer, *length + addition + 1);
     *buffer = grown;
     memcpy(*buffer + *length, text, addition);
     *length += addition;
@@ -69,17 +68,14 @@ void md_outline_build(md_outline_t *outline, const md_block_node_t *document,
     int block_id = 0;
     while (block != NULL) {
         if (block->type == MD_BLOCK_HEADING) {
-            md_outline_entry_t *grown = realloc(
+            md_outline_entry_t *grown = sm_realloc(
                 outline->entries, (size_t)(outline->count + 1) * sizeof(*grown));
-            ASSERT_MSG(grown != NULL, "md_outline: failed to grow to %d entries",
-                       outline->count + 1);
             outline->entries = grown;
 
             char *title = NULL;
             size_t length = 0;
             append_inlines(&title, &length, block->inlines);
-            if (title == NULL) title = strdup("");
-            ASSERT_MSG(title != NULL, "md_outline: failed to allocate title");
+            if (title == NULL) title = sm_strdup("");
 
             outline->entries[outline->count++] = (md_outline_entry_t) {
                 .level = block->level,

@@ -10,6 +10,7 @@
 
 #include "md_table.h"
 #include "md_style.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 #include "unicode_width.h"
 
@@ -83,12 +84,12 @@ static void tbl_add_span(md_display_line_t *dl, const char *text, int text_len,
                           term_style_t style, int display_width,
                           const char *link_url) {
     int n = dl->span_count;
-    dl->spans = realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
-    char *t = malloc((size_t)text_len + 1);
+    dl->spans = sm_realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
+    char *t = sm_malloc((size_t)text_len + 1);
     memcpy(t, text, (size_t)text_len);
     t[text_len] = '\0';
     dl->spans[n].text = t;
-    dl->spans[n].link_url = link_url ? strdup(link_url) : NULL;
+    dl->spans[n].link_url = link_url ? sm_strdup(link_url) : NULL;
     dl->spans[n].style = style;
     dl->spans[n].width = display_width;
     dl->span_count = n + 1;
@@ -99,11 +100,11 @@ static void tbl_add_span(md_display_line_t *dl, const char *text, int text_len,
 
 /* Get plain text content from inline nodes of a cell (for width measurement) */
 static char *cell_text(md_block_node_t *cell) {
-    if (!cell || !cell->inlines) return strdup("");
+    if (!cell || !cell->inlines) return sm_strdup("");
 
-    char *buf = NULL;
+    char *buf = sm_strdup("");
     int len = 0;
-    int cap = 0;
+    int cap = 1;
 
     md_inline_node_t *inl = cell->inlines;
     while (inl) {
@@ -112,7 +113,7 @@ static char *cell_text(md_block_node_t *cell) {
             int tl = (int)strlen(t);
             if (len + tl >= cap) {
                 cap = (len + tl) * 2 + 16;
-                buf = realloc(buf, (size_t)cap);
+                buf = sm_realloc(buf, (size_t)cap);
             }
             memcpy(buf + len, t, (size_t)tl);
             len += tl;
@@ -125,7 +126,7 @@ static char *cell_text(md_block_node_t *cell) {
                     int tl = (int)strlen(ch->text);
                     if (len + tl >= cap) {
                         cap = (len + tl) * 2 + 16;
-                        buf = realloc(buf, (size_t)cap);
+                        buf = sm_realloc(buf, (size_t)cap);
                     }
                     memcpy(buf + len, ch->text, (size_t)tl);
                     len += tl;
@@ -136,7 +137,6 @@ static char *cell_text(md_block_node_t *cell) {
         inl = inl->next;
     }
 
-    if (!buf) return strdup("");
     buf[len] = '\0';
     return buf;
 }
@@ -198,14 +198,14 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
     if (nrows == 0) return;
 
     /* Allocate cell text array [row][col] and AST node refs */
-    char ***cells = calloc((size_t)nrows, sizeof(char **));
-    md_block_node_t ***cell_nodes = calloc((size_t)nrows, sizeof(md_block_node_t **));
-    int *is_header = calloc((size_t)nrows, sizeof(int));
+    char ***cells = sm_calloc((size_t)nrows, sizeof(char **));
+    md_block_node_t ***cell_nodes = sm_calloc((size_t)nrows, sizeof(md_block_node_t **));
+    int *is_header = sm_calloc((size_t)nrows, sizeof(int));
     int r = 0;
     row = table->children;
     while (row) {
-        cells[r] = calloc((size_t)ncols, sizeof(char *));
-        cell_nodes[r] = calloc((size_t)ncols, sizeof(md_block_node_t *));
+        cells[r] = sm_calloc((size_t)ncols, sizeof(char *));
+        cell_nodes[r] = sm_calloc((size_t)ncols, sizeof(md_block_node_t *));
         is_header[r] = row->is_header;
         md_block_node_t *cell = row->children;
         int c = 0;
@@ -216,7 +216,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
             c++;
         }
         while (c < ncols) {
-            cells[r][c] = strdup("");
+            cells[r][c] = sm_strdup("");
             cell_nodes[r][c] = NULL;
             c++;
         }
@@ -225,7 +225,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
     }
 
     /* Measure column widths */
-    int *col_widths = calloc((size_t)ncols, sizeof(int));
+    int *col_widths = sm_calloc((size_t)ncols, sizeof(int));
     for (int c = 0; c < ncols; c++) {
         for (int ri = 0; ri < nrows; ri++) {
             int w = utf8_display_width_t(cells[ri][c], (int)strlen(cells[ri][c]));
@@ -244,20 +244,20 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
         char *hbuf = NULL; \
         int hlen = 0, hcap = 0; \
         /* left corner */ \
-        { int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = realloc(hbuf, (size_t)hcap); } \
+        { int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = sm_realloc(hbuf, (size_t)hcap); } \
           memcpy(hbuf + hlen, left, 3); hlen += 3; } \
         for (int ci = 0; ci < ncols; ci++) { \
             /* fill chars for column width */ \
             for (int fi = 0; fi < col_widths[ci]; fi++) { \
-                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = realloc(hbuf, (size_t)hcap); } \
+                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = sm_realloc(hbuf, (size_t)hcap); } \
                 memcpy(hbuf + hlen, fill, 3); hlen += 3; \
             } \
             /* middle or right corner */ \
             if (ci < ncols - 1) { \
-                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = realloc(hbuf, (size_t)hcap); } \
+                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = sm_realloc(hbuf, (size_t)hcap); } \
                 memcpy(hbuf + hlen, mid, 3); hlen += 3; \
             } else { \
-                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = realloc(hbuf, (size_t)hcap); } \
+                int need = hlen + 3 + 1; if (need > hcap) { hcap = need * 2; hbuf = sm_realloc(hbuf, (size_t)hcap); } \
                 memcpy(hbuf + hlen, right, 3); hlen += 3; \
             } \
         } \
@@ -318,7 +318,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
             }
 
             if (left_pad > 0) {
-                char *sp = calloc(1, (size_t)left_pad + 1);
+                char *sp = sm_calloc(1, (size_t)left_pad + 1);
                 memset(sp, ' ', (size_t)left_pad);
                 tbl_add_span(&dline, sp, left_pad, text_style, left_pad, NULL);
                 free(sp);
@@ -339,7 +339,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
             }
 
             if (right_pad > 0) {
-                char *sp = calloc(1, (size_t)right_pad + 1);
+                char *sp = sm_calloc(1, (size_t)right_pad + 1);
                 memset(sp, ' ', (size_t)right_pad);
                 tbl_add_span(&dline, sp, right_pad, text_style, right_pad, NULL);
                 free(sp);

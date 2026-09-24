@@ -11,6 +11,7 @@
 #include "md_style.h"
 #include "md_table.h"
 #include "md_highlight.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 #include "unicode_width.h"
 
@@ -22,8 +23,7 @@
 
 void md_layout_add_line(md_layout_t *layout, md_display_line_t *line) {
     int n = layout->line_count;
-    layout->lines = realloc(layout->lines, (size_t)(n + 1) * sizeof(md_display_line_t));
-    ASSERT_MSG(layout->lines != NULL, "md_layout_add_line: realloc failed");
+    layout->lines = sm_realloc(layout->lines, (size_t)(n + 1) * sizeof(md_display_line_t));
     layout->lines[n] = *line;
     layout->line_count = n + 1;
     if (line->display_width > layout->max_width) {
@@ -58,13 +58,12 @@ static void line_add_span_link(md_display_line_t *dl, const char *text, int text
                                term_style_t style, int display_width,
                                const char *link_url) {
     int n = dl->span_count;
-    dl->spans = realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
-    ASSERT_MSG(dl->spans != NULL, "line_add_span: realloc failed");
-    char *t = malloc((size_t)text_len + 1);
+    dl->spans = sm_realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
+    char *t = sm_malloc((size_t)text_len + 1);
     memcpy(t, text, (size_t)text_len);
     t[text_len] = '\0';
     dl->spans[n].text = t;
-    dl->spans[n].link_url = link_url ? strdup(link_url) : NULL;
+    dl->spans[n].link_url = link_url ? sm_strdup(link_url) : NULL;
     dl->spans[n].style = style;
     dl->spans[n].width = display_width;
     dl->span_count = n + 1;
@@ -166,11 +165,11 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                     while (i < len && (s[i] == ' ' || s[i] == '\t')) i++;
                     if (*count >= *cap) {
                         *cap = (*cap == 0) ? 64 : *cap * 2;
-                        *frags = realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
+                        *frags = sm_realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
                     }
                     word_frag_t *f = &(*frags)[*count];
                     f->byte_len = i - start;
-                    f->text = malloc((size_t)f->byte_len + 1);
+                    f->text = sm_malloc((size_t)f->byte_len + 1);
                     memcpy(f->text, s + start, (size_t)f->byte_len);
                     f->text[f->byte_len] = '\0';
                     f->display_width = i - start; /* spaces are width 1 each */
@@ -184,11 +183,11 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                     while (i < len && s[i] != ' ' && s[i] != '\t') i++;
                     if (*count >= *cap) {
                         *cap = (*cap == 0) ? 64 : *cap * 2;
-                        *frags = realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
+                        *frags = sm_realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
                     }
                     word_frag_t *f = &(*frags)[*count];
                     f->byte_len = i - start;
-                    f->text = malloc((size_t)f->byte_len + 1);
+                    f->text = sm_malloc((size_t)f->byte_len + 1);
                     memcpy(f->text, s + start, (size_t)f->byte_len);
                     f->text[f->byte_len] = '\0';
                     f->display_width = utf8_display_width(s + start, f->byte_len);
@@ -211,11 +210,11 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
             if (!inl->text) break;
             if (*count >= *cap) {
                 *cap = (*cap == 0) ? 64 : *cap * 2;
-                *frags = realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
+                *frags = sm_realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
             }
             word_frag_t *f = &(*frags)[*count];
             f->byte_len = (int)strlen(inl->text);
-            f->text = strdup(inl->text);
+            f->text = sm_strdup(inl->text);
             f->display_width = utf8_display_width(inl->text, f->byte_len);
             f->style = MD_STYLE_INLINE_CODE;
             f->link_url = link_url;
@@ -239,11 +238,11 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
             /* Treat as space */
             if (*count >= *cap) {
                 *cap = (*cap == 0) ? 64 : *cap * 2;
-                *frags = realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
+                *frags = sm_realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
             }
             {
                 word_frag_t *f = &(*frags)[*count];
-                f->text = strdup(" ");
+                f->text = sm_strdup(" ");
                 f->byte_len = 1;
                 f->display_width = 1;
                 f->style = style;
@@ -257,11 +256,11 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
             /* Will be handled during reflow as forced break */
             if (*count >= *cap) {
                 *cap = (*cap == 0) ? 64 : *cap * 2;
-                *frags = realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
+                *frags = sm_realloc(*frags, (size_t)*cap * sizeof(word_frag_t));
             }
             {
                 word_frag_t *f = &(*frags)[*count];
-                f->text = strdup("\n");
+                f->text = sm_strdup("\n");
                 f->byte_len = 1;
                 f->display_width = 0;
                 f->style = style;
@@ -298,7 +297,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
 
     /* Add indent at start of line if needed */
     if (indent > 0) {
-        char *spaces = calloc(1, (size_t)indent + 1);
+        char *spaces = sm_calloc(1, (size_t)indent + 1);
         memset(spaces, ' ', (size_t)indent);
         line_add_span(&cur_line, spaces, indent, body_style, indent);
         free(spaces);
@@ -319,7 +318,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
             cur_line.source_block = block_id;
             cur_width = 0;
             if (indent > 0) {
-                char *spaces = calloc(1, (size_t)indent + 1);
+                char *spaces = sm_calloc(1, (size_t)indent + 1);
                 memset(spaces, ' ', (size_t)indent);
                 line_add_span(&cur_line, spaces, indent, body_style, indent);
                 free(spaces);
@@ -349,7 +348,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
             cur_line.source_block = block_id;
             cur_width = 0;
             if (indent > 0) {
-                char *spaces = calloc(1, (size_t)indent + 1);
+                char *spaces = sm_calloc(1, (size_t)indent + 1);
                 memset(spaces, ' ', (size_t)indent);
                 line_add_span(&cur_line, spaces, indent, body_style, indent);
                 free(spaces);
@@ -391,7 +390,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
                     cur_line.source_block = block_id;
                     cur_width = 0;
                     if (indent > 0) {
-                        char *spaces = calloc(1, (size_t)indent + 1);
+                        char *spaces = sm_calloc(1, (size_t)indent + 1);
                         memset(spaces, ' ', (size_t)indent);
                         line_add_span(&cur_line, spaces, indent, body_style, indent);
                         free(spaces);
@@ -478,7 +477,7 @@ static void render_heading(md_layout_t *layout, md_block_node_t *block,
     /* If H1/H2, pad with spaces for full-width background band */
     if (has_bg_band && total_width < terminal_width) {
         int pad = terminal_width - total_width;
-        char *spaces = calloc(1, (size_t)pad + 1);
+        char *spaces = sm_calloc(1, (size_t)pad + 1);
         memset(spaces, ' ', (size_t)pad);
         line_add_span(&hline, spaces, pad, *style, pad);
         free(spaces);
@@ -498,7 +497,7 @@ static void render_hrule(md_layout_t *layout, int terminal_width, int block_id) 
     /* U+2500 = ─ = 0xE2 0x94 0x80, display width 1 */
     int w = terminal_width;
     int byte_len = w * 3;
-    char *buf = malloc((size_t)byte_len + 1);
+    char *buf = sm_malloc((size_t)byte_len + 1);
     for (int i = 0; i < w; i++) {
         buf[i * 3]     = (char)0xE2;
         buf[i * 3 + 1] = (char)0x94;
@@ -533,7 +532,7 @@ static void render_code_fence(md_layout_t *layout, md_block_node_t *block,
         if (border_chars < 3) border_chars = 3;
 
         int bb = border_chars * 3;
-        char *buf = malloc((size_t)bb + 1);
+        char *buf = sm_malloc((size_t)bb + 1);
         for (int i = 0; i < border_chars; i++) {
             buf[i * 3]     = (char)0xE2;
             buf[i * 3 + 1] = (char)0x94;
@@ -580,8 +579,7 @@ static void render_code_fence(md_layout_t *layout, md_block_node_t *block,
                 if (lang && lang->tokenise) {
                     /* Syntax-highlighted rendering */
                     /* Make a NUL-terminated copy of the line */
-                    char *line_buf = malloc((size_t)ll + 1);
-                    ASSERT_MSG(line_buf != NULL, "render_code_fence: malloc failed");
+                    char *line_buf = sm_malloc((size_t)ll + 1);
                     memcpy(line_buf, s + line_start, (size_t)ll);
                     line_buf[ll] = '\0';
 
@@ -634,7 +632,7 @@ static void render_code_fence(md_layout_t *layout, md_block_node_t *block,
         bline.is_wide_line = 1;
 
         int bb = terminal_width * 3;
-        char *buf = malloc((size_t)bb + 1);
+        char *buf = sm_malloc((size_t)bb + 1);
         for (int i = 0; i < terminal_width; i++) {
             buf[i * 3]     = (char)0xE2;
             buf[i * 3 + 1] = (char)0x94;
@@ -710,7 +708,7 @@ static void render_list(md_layout_t *layout, md_block_node_t *list,
 
                 /* Add indent spaces */
                 if (indent > 0) {
-                    char *spaces = calloc(1, (size_t)indent + 1);
+                    char *spaces = sm_calloc(1, (size_t)indent + 1);
                     memset(spaces, ' ', (size_t)indent);
                     line_add_span(&first_line, spaces, indent, MD_STYLE_BODY, indent);
                     free(spaces);
@@ -748,7 +746,7 @@ static void render_list(md_layout_t *layout, md_block_node_t *list,
                         cur_width = 0;
                         /* Continuation indent */
                         if (total_indent > 0) {
-                            char *spaces = calloc(1, (size_t)total_indent + 1);
+                            char *spaces = sm_calloc(1, (size_t)total_indent + 1);
                             memset(spaces, ' ', (size_t)total_indent);
                             line_add_span(&first_line, spaces, total_indent, MD_STYLE_BODY, total_indent);
                             free(spaces);
@@ -813,7 +811,7 @@ static void render_blockquote(md_layout_t *layout, md_block_node_t *bq,
                          MD_STYLE_BLOCKQUOTE_TEXT, src->spans[j].width);
             if (src->spans[j].link_url != NULL) {
                 md_span_t *copied = &dest.spans[dest.span_count - 1];
-                copied->link_url = strdup(src->spans[j].link_url);
+                copied->link_url = sm_strdup(src->spans[j].link_url);
             }
         }
 
@@ -849,8 +847,7 @@ static void ensure_blank_before(md_layout_t *layout, int block_id) {
 }
 
 md_layout_t *md_render(md_block_node_t *root, int terminal_width) {
-    md_layout_t *layout = calloc(1, sizeof(*layout));
-    ASSERT_MSG(layout != NULL, "md_render: failed to allocate layout");
+    md_layout_t *layout = sm_calloc(1, sizeof(*layout));
 
     if (!root) return layout;
     if (terminal_width < 1) terminal_width = 1;

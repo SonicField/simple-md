@@ -9,6 +9,7 @@
  */
 
 #include "md_parse.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 
 #include <stdlib.h>
@@ -163,8 +164,7 @@ static int is_blockquote(const char *line, int len, int *content_offset) {
 static char *line_strdup(const char *s, int len) {
     /* trim trailing \r */
     while (len > 0 && s[len - 1] == '\r') len--;
-    char *r = malloc((size_t)len + 1);
-    if (!r) return NULL;
+    char *r = sm_malloc((size_t)len + 1);
     memcpy(r, s, (size_t)len);
     r[len] = '\0';
     return r;
@@ -518,7 +518,7 @@ md_block_node_t *md_parse(const char *input) {
         int _needed = para_len + (l) + 2; \
         if (_needed > para_cap) { \
             para_cap = _needed * 2; \
-            para_buf = realloc(para_buf, (size_t)para_cap); \
+            para_buf = sm_realloc(para_buf, (size_t)para_cap); \
         } \
         if (para_len > 0) { \
             /* Check if previous line ended with 2+ spaces (hard break). \
@@ -571,7 +571,7 @@ md_block_node_t *md_parse(const char *input) {
                 int needed = body_len + ctlen + 2;
                 if (needed > body_cap) {
                     body_cap = needed * 2;
-                    body = realloc(body, (size_t)body_cap);
+                    body = sm_realloc(body, (size_t)body_cap);
                 }
                 if (body_len > 0) body[body_len++] = '\n';
                 memcpy(body + body_len, cline, (size_t)ctlen);
@@ -581,7 +581,7 @@ md_block_node_t *md_parse(const char *input) {
                 body[body_len] = '\0';
                 cf->raw = body;
             } else {
-                cf->raw = strdup("");
+                cf->raw = sm_strdup("");
             }
             md_block_add_child(doc, cf);
             continue;
@@ -637,7 +637,7 @@ md_block_node_t *md_parse(const char *input) {
 
                 md_block_node_t *table = md_block_create(MD_BLOCK_TABLE);
                 table->col_count = col_count;
-                table->col_align = calloc((size_t)col_count, sizeof(md_align_t));
+                table->col_align = sm_calloc((size_t)col_count, sizeof(md_align_t));
                 parse_table_alignments(next_line, next_tlen, table->col_align, col_count);
 
                 /* header row */
@@ -700,7 +700,7 @@ md_block_node_t *md_parse(const char *input) {
             int content_len = tlen - bq_offset;
             if (content_len > 0) {
                 bq_cap = content_len + 2;
-                bq_buf = malloc((size_t)bq_cap);
+                bq_buf = sm_malloc((size_t)bq_cap);
                 memcpy(bq_buf, line + bq_offset, (size_t)content_len);
                 bq_len = content_len;
                 bq_buf[bq_len] = '\0';
@@ -718,7 +718,7 @@ md_block_node_t *md_parse(const char *input) {
                 if (is_blockquote(bline, btlen, &bq_off2)) {
                     int cl = btlen - bq_off2;
                     int needed = bq_len + cl + 2;
-                    if (needed > bq_cap) { bq_cap = needed * 2; bq_buf = realloc(bq_buf, (size_t)bq_cap); }
+                    if (needed > bq_cap) { bq_cap = needed * 2; bq_buf = sm_realloc(bq_buf, (size_t)bq_cap); }
                     if (bq_len > 0) bq_buf[bq_len++] = '\n';
                     if (cl > 0) memcpy(bq_buf + bq_len, bline + bq_off2, (size_t)cl);
                     bq_len += cl;

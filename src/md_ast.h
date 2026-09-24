@@ -2,7 +2,7 @@
  * md_ast.h — AST node types for Markdown parsing.
  *
  * Defines block and inline node types, allocation, tree construction,
- * and recursive deallocation. All strings are owned via strdup().
+ * and recursive deallocation. All strings are owned by their nodes.
  */
 
 #ifndef MD_AST_H

@@ -1,4 +1,5 @@
 #include "md_search.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 
 #include <ctype.h>
@@ -22,8 +23,7 @@ static char *line_text(const md_display_line_t *line, size_t *length) {
     size_t total = 0;
     for (int i = 0; i < line->span_count; i++) total += strlen(line->spans[i].text);
 
-    char *text = malloc(total + 1);
-    ASSERT_MSG(text != NULL, "md_search: failed to allocate %zu bytes", total + 1);
+    char *text = sm_malloc(total + 1);
     size_t offset = 0;
     for (int i = 0; i < line->span_count; i++) {
         size_t span_length = strlen(line->spans[i].text);
@@ -37,9 +37,8 @@ static char *line_text(const md_display_line_t *line, size_t *length) {
 
 static void add_match(md_search_t *search, int line, size_t start, size_t end) {
     int count = search->match_count;
-    md_match_t *grown = realloc(search->matches,
-                                (size_t)(count + 1) * sizeof(*grown));
-    ASSERT_MSG(grown != NULL, "md_search: failed to grow match index to %d", count + 1);
+    md_match_t *grown = sm_realloc(search->matches,
+                                   (size_t)(count + 1) * sizeof(*grown));
     search->matches = grown;
     search->matches[count] = (md_match_t) {
         .line = line,

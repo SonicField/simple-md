@@ -1,28 +1,27 @@
 /*
  * md_ast.c — AST node allocation, tree construction, and deallocation.
  *
- * All strings are owned by nodes via strdup(). md_block_destroy() frees
+ * All strings are owned by nodes. md_block_destroy() frees
  * the entire tree recursively. No node references memory outside the tree.
  */
 
 #define _POSIX_C_SOURCE 200809L
 
 #include "md_ast.h"
+#include "sm_alloc.h"
 #include "sm_assert.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 md_block_node_t *md_block_create(md_block_type_t type) {
-    md_block_node_t *node = calloc(1, sizeof(*node));
-    if (!node) return NULL;
+    md_block_node_t *node = sm_calloc(1, sizeof(*node));
     node->type = type;
     return node;
 }
 
 md_inline_node_t *md_inline_create(md_inline_type_t type) {
-    md_inline_node_t *node = calloc(1, sizeof(*node));
-    if (!node) return NULL;
+    md_inline_node_t *node = sm_calloc(1, sizeof(*node));
     node->type = type;
     return node;
 }
@@ -30,36 +29,21 @@ md_inline_node_t *md_inline_create(md_inline_type_t type) {
 md_inline_node_t *md_inline_create_text(const char *text) {
     ASSERT_MSG(text != NULL, "md_inline_create_text: text is NULL");
     md_inline_node_t *node = md_inline_create(MD_INLINE_TEXT);
-    if (!node) return NULL;
-    node->text = strdup(text);
-    if (!node->text) {
-        free(node);
-        return NULL;
-    }
+    node->text = sm_strdup(text);
     return node;
 }
 
 md_inline_node_t *md_inline_create_code(const char *text) {
     ASSERT_MSG(text != NULL, "md_inline_create_code: text is NULL");
     md_inline_node_t *node = md_inline_create(MD_INLINE_CODE);
-    if (!node) return NULL;
-    node->text = strdup(text);
-    if (!node->text) {
-        free(node);
-        return NULL;
-    }
+    node->text = sm_strdup(text);
     return node;
 }
 
 md_inline_node_t *md_inline_create_link(const char *url) {
     ASSERT_MSG(url != NULL, "md_inline_create_link: url is NULL");
     md_inline_node_t *node = md_inline_create(MD_INLINE_LINK);
-    if (!node) return NULL;
-    node->url = strdup(url);
-    if (!node->url) {
-        free(node);
-        return NULL;
-    }
+    node->url = sm_strdup(url);
     return node;
 }
 

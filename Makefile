@@ -14,11 +14,12 @@ BUILD_DIR = build
 
 HIGHLIGHT_SOURCES = src/md_highlight.c src/md_lang_c.c src/md_lang_js.c \
 	src/md_lang_py.c src/md_lang_pas.c
+ALLOC_SOURCE = src/sm_alloc.c
 
 SOURCES = src/main.c src/md_ast.c src/md_parse.c src/md_render.c \
 	src/md_table.c src/md_style.c src/md_viewport.c src/md_terminal.c \
 	src/md_output.c src/md_search.c src/md_outline.c $(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c \
-	src/bidi.c src/term_link.c
+	src/bidi.c src/term_link.c $(ALLOC_SOURCE)
 
 TEST_BINS = $(BUILD_DIR)/test_md_ast $(BUILD_DIR)/test_md_parse \
 	$(BUILD_DIR)/test_md_render $(BUILD_DIR)/test_md_table \
@@ -38,26 +39,26 @@ $(TARGET): $(SOURCES)
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(BUILD_DIR)/test_md_ast: tests/test_md_ast.c src/md_ast.c | $(BUILD_DIR)
+$(BUILD_DIR)/test_md_ast: tests/test_md_ast.c src/md_ast.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
-$(BUILD_DIR)/test_md_parse: tests/test_md_parse.c src/md_ast.c src/md_parse.c | $(BUILD_DIR)
+$(BUILD_DIR)/test_md_parse: tests/test_md_parse.c src/md_ast.c src/md_parse.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_render: tests/test_md_render.c src/md_render.c src/md_parse.c \
 	src/md_ast.c src/md_style.c src/md_table.c $(HIGHLIGHT_SOURCES) \
-	src/term_style.c src/unicode_width.c | $(BUILD_DIR)
+	src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_table: tests/test_md_table.c src/md_table.c src/md_render.c \
 	src/md_parse.c src/md_ast.c src/md_style.c $(HIGHLIGHT_SOURCES) \
-	src/term_style.c src/unicode_width.c | $(BUILD_DIR)
+	src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_viewport: tests/test_md_viewport.c src/md_viewport.c \
 	src/md_terminal.c src/md_render.c src/md_parse.c src/md_ast.c \
 	src/md_style.c src/md_table.c src/md_search.c $(HIGHLIGHT_SOURCES) src/term_style.c \
-	src/unicode_width.c src/bidi.c src/term_link.c | $(BUILD_DIR)
+	src/unicode_width.c src/bidi.c src/term_link.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_highlight: tests/test_md_highlight.c $(HIGHLIGHT_SOURCES) \
@@ -68,12 +69,12 @@ $(BUILD_DIR)/test_md_output: tests/test_md_output.c src/md_output.c \
 	src/term_style.c src/term_link.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
-$(BUILD_DIR)/test_md_search: tests/test_md_search.c src/md_search.c | $(BUILD_DIR)
+$(BUILD_DIR)/test_md_search: tests/test_md_search.c src/md_search.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_outline: tests/test_md_outline.c src/md_outline.c \
 	src/md_ast.c src/md_parse.c src/md_render.c src/md_style.c src/md_table.c \
-	$(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c | $(BUILD_DIR)
+	$(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_term_link: tests/test_term_link.c src/term_link.c | $(BUILD_DIR)
