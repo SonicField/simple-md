@@ -80,13 +80,15 @@ static int utf8_display_width_t(const char *s, int len) {
 /* ── span add helper ─────────────────────────────────────────────── */
 
 static void tbl_add_span(md_display_line_t *dl, const char *text, int text_len,
-                          term_style_t style, int display_width) {
+                          term_style_t style, int display_width,
+                          const char *link_url) {
     int n = dl->span_count;
     dl->spans = realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
     char *t = malloc((size_t)text_len + 1);
     memcpy(t, text, (size_t)text_len);
     t[text_len] = '\0';
     dl->spans[n].text = t;
+    dl->spans[n].link_url = link_url ? strdup(link_url) : NULL;
     dl->spans[n].style = style;
     dl->spans[n].width = display_width;
     dl->span_count = n + 1;
@@ -157,21 +159,21 @@ static void cell_add_styled_spans(md_display_line_t *dl,
                 if (ch->text) {
                     int tl = (int)strlen(ch->text);
                     int tw = utf8_display_width_t(ch->text, tl);
-                    tbl_add_span(dl, ch->text, tl, ls, tw);
+                    tbl_add_span(dl, ch->text, tl, ls, tw, inl->url);
                 }
             }
         } else if (inl->text) {
             /* Normal text */
             int tl = (int)strlen(inl->text);
             int tw = utf8_display_width_t(inl->text, tl);
-            tbl_add_span(dl, inl->text, tl, base_style, tw);
+            tbl_add_span(dl, inl->text, tl, base_style, tw, NULL);
         } else if (inl->children) {
             /* Other node with children (bold, italic, etc.) */
             for (md_inline_node_t *ch = inl->children; ch; ch = ch->next) {
                 if (ch->text) {
                     int tl = (int)strlen(ch->text);
                     int tw = utf8_display_width_t(ch->text, tl);
-                    tbl_add_span(dl, ch->text, tl, base_style, tw);
+                    tbl_add_span(dl, ch->text, tl, base_style, tw, NULL);
                 }
             }
         }
@@ -262,7 +264,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
         hbuf[hlen] = '\0'; \
         int tw = 1; /* left corner */ \
         for (int ci = 0; ci < ncols; ci++) tw += col_widths[ci] + 1; \
-        tbl_add_span(&hline, hbuf, hlen, MD_STYLE_TABLE_BORDER, tw); \
+        tbl_add_span(&hline, hbuf, hlen, MD_STYLE_TABLE_BORDER, tw, NULL); \
         free(hbuf); \
         md_layout_add_line(layout, &hline); \
     } while(0)
@@ -281,7 +283,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
 
         for (int ci = 0; ci < ncols; ci++) {
             /* left border or separator */
-            tbl_add_span(&dline, BOX_V, 3, MD_STYLE_TABLE_BORDER, 1);
+            tbl_add_span(&dline, BOX_V, 3, MD_STYLE_TABLE_BORDER, 1, NULL);
 
             /* Cell content with alignment */
             int cw = col_widths[ci];
@@ -318,7 +320,7 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
             if (left_pad > 0) {
                 char *sp = calloc(1, (size_t)left_pad + 1);
                 memset(sp, ' ', (size_t)left_pad);
-                tbl_add_span(&dline, sp, left_pad, text_style, left_pad);
+                tbl_add_span(&dline, sp, left_pad, text_style, left_pad, NULL);
                 free(sp);
             }
 
@@ -332,20 +334,20 @@ void md_table_render(md_layout_t *layout, md_block_node_t *table,
                 if (cell_nodes[ri][ci]) {
                     cell_add_styled_spans(&dline, cell_nodes[ri][ci], cell_style);
                 } else {
-                    tbl_add_span(&dline, ct, ct_len, cell_style, ct_width);
+                    tbl_add_span(&dline, ct, ct_len, cell_style, ct_width, NULL);
                 }
             }
 
             if (right_pad > 0) {
                 char *sp = calloc(1, (size_t)right_pad + 1);
                 memset(sp, ' ', (size_t)right_pad);
-                tbl_add_span(&dline, sp, right_pad, text_style, right_pad);
+                tbl_add_span(&dline, sp, right_pad, text_style, right_pad, NULL);
                 free(sp);
             }
         }
 
         /* right border */
-        tbl_add_span(&dline, BOX_V, 3, MD_STYLE_TABLE_BORDER, 1);
+        tbl_add_span(&dline, BOX_V, 3, MD_STYLE_TABLE_BORDER, 1, NULL);
         md_layout_add_line(layout, &dline);
 
         /* Header separator after first header row: ╞═╪═╡ */

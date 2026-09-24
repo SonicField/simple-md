@@ -44,6 +44,7 @@ void md_layout_destroy(md_layout_t *layout) {
         md_display_line_t *dl = &layout->lines[i];
         for (int j = 0; j < dl->span_count; j++) {
             free(dl->spans[j].text);
+            free(dl->spans[j].link_url);
         }
         free(dl->spans);
     }
@@ -53,8 +54,9 @@ void md_layout_destroy(md_layout_t *layout) {
 
 /* ── span helpers ────────────────────────────────────────────────── */
 
-static void line_add_span(md_display_line_t *dl, const char *text, int text_len,
-                           term_style_t style, int display_width) {
+static void line_add_span_link(md_display_line_t *dl, const char *text, int text_len,
+                               term_style_t style, int display_width,
+                               const char *link_url) {
     int n = dl->span_count;
     dl->spans = realloc(dl->spans, (size_t)(n + 1) * sizeof(md_span_t));
     ASSERT_MSG(dl->spans != NULL, "line_add_span: realloc failed");
@@ -62,10 +64,16 @@ static void line_add_span(md_display_line_t *dl, const char *text, int text_len,
     memcpy(t, text, (size_t)text_len);
     t[text_len] = '\0';
     dl->spans[n].text = t;
+    dl->spans[n].link_url = link_url ? strdup(link_url) : NULL;
     dl->spans[n].style = style;
     dl->spans[n].width = display_width;
     dl->span_count = n + 1;
     dl->display_width += display_width;
+}
+
+static void line_add_span(md_display_line_t *dl, const char *text, int text_len,
+                          term_style_t style, int display_width) {
+    line_add_span_link(dl, text, text_len, style, display_width, NULL);
 }
 
 /* ── UTF-8 utilities ─────────────────────────────────────────────── */
@@ -129,6 +137,7 @@ typedef struct {
     int   byte_len;
     int   display_width;
     term_style_t style;
+    const char *link_url;
     int   is_space;    /* 1 if this is a whitespace separator */
 } word_frag_t;
 
@@ -139,7 +148,8 @@ static void free_frags(word_frag_t *frags, int count) {
 
 /* Collect inline nodes into a flat list of word fragments for reflow */
 static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_style,
-                                  word_frag_t **frags, int *count, int *cap) {
+                                  const char *link_url, word_frag_t **frags,
+                                  int *count, int *cap) {
     while (inl) {
         term_style_t style = parent_style;
 
@@ -165,6 +175,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                     f->text[f->byte_len] = '\0';
                     f->display_width = i - start; /* spaces are width 1 each */
                     f->style = style;
+                    f->link_url = link_url;
                     f->is_space = 1;
                     (*count)++;
                 } else {
@@ -182,6 +193,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                     f->text[f->byte_len] = '\0';
                     f->display_width = utf8_display_width(s + start, f->byte_len);
                     f->style = style;
+                    f->link_url = link_url;
                     f->is_space = 0;
                     (*count)++;
                 }
@@ -192,7 +204,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
         case MD_INLINE_ITALIC:
         case MD_INLINE_BOLD_ITALIC:
             style = *inline_style(inl->type);
-            collect_inline_frags(inl->children, style, frags, count, cap);
+            collect_inline_frags(inl->children, style, link_url, frags, count, cap);
             break;
 
         case MD_INLINE_CODE: {
@@ -206,6 +218,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
             f->text = strdup(inl->text);
             f->display_width = utf8_display_width(inl->text, f->byte_len);
             f->style = MD_STYLE_INLINE_CODE;
+            f->link_url = link_url;
             f->is_space = 0;
             (*count)++;
             break;
@@ -216,7 +229,8 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
             if (inl->children) {
                 term_style_t ls = MD_STYLE_LINK_TEXT;
                 ls.bg = parent_style.bg;
-                collect_inline_frags(inl->children, ls, frags, count, cap);
+                collect_inline_frags(inl->children, ls, inl->url,
+                                     frags, count, cap);
             }
             break;
         }
@@ -233,6 +247,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                 f->byte_len = 1;
                 f->display_width = 1;
                 f->style = style;
+                f->link_url = link_url;
                 f->is_space = 1;
                 (*count)++;
             }
@@ -250,6 +265,7 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                 f->byte_len = 1;
                 f->display_width = 0;
                 f->style = style;
+                f->link_url = link_url;
                 f->is_space = 1;
                 (*count)++;
             }
@@ -269,7 +285,8 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
     int frag_count = 0;
     int frag_cap = 0;
 
-    collect_inline_frags(block->inlines, body_style, &frags, &frag_count, &frag_cap);
+    collect_inline_frags(block->inlines, body_style, NULL,
+                         &frags, &frag_count, &frag_cap);
 
     int avail = terminal_width - indent;
     if (avail < 1) avail = 1;
@@ -289,6 +306,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
 
     int pending_space = 0; /* 1 if we need a space before the next word */
     term_style_t space_style = body_style;
+    const char *space_link_url = NULL;
 
     for (int i = 0; i < frag_count; i++) {
         word_frag_t *f = &frags[i];
@@ -314,6 +332,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
             if (cur_width > 0) {
                 pending_space = 1;
                 space_style = f->style;
+                space_link_url = f->link_url;
             }
             continue;
         }
@@ -339,7 +358,7 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
 
         /* Emit pending space if it fits */
         if (pending_space && cur_width > 0) {
-            line_add_span(&cur_line, " ", 1, space_style, 1);
+            line_add_span_link(&cur_line, " ", 1, space_style, 1, space_link_url);
             cur_width += 1;
             pending_space = 0;
         }
@@ -363,7 +382,8 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
                     line_w += cw;
                     pos += b;
                 }
-                line_add_span(&cur_line, s + line_start, pos - line_start, f->style, line_w);
+                line_add_span_link(&cur_line, s + line_start, pos - line_start,
+                                   f->style, line_w, f->link_url);
                 cur_width += line_w;
                 if (pos < slen) {
                     md_layout_add_line(layout, &cur_line);
@@ -382,7 +402,8 @@ static void reflow_paragraph(md_layout_t *layout, md_block_node_t *block,
         }
 
         /* Normal word: add it */
-        line_add_span(&cur_line, f->text, f->byte_len, f->style, f->display_width);
+        line_add_span_link(&cur_line, f->text, f->byte_len, f->style,
+                           f->display_width, f->link_url);
         cur_width += f->display_width;
     }
 
@@ -412,7 +433,8 @@ static void render_heading(md_layout_t *layout, md_block_node_t *block,
     word_frag_t *frags = NULL;
     int frag_count = 0;
     int frag_cap = 0;
-    collect_inline_frags(block->inlines, *style, &frags, &frag_count, &frag_cap);
+    collect_inline_frags(block->inlines, *style, NULL,
+                         &frags, &frag_count, &frag_cap);
 
     /* Build single line (no reflow — truncate if needed) */
     md_display_line_t hline;
@@ -440,13 +462,16 @@ static void render_heading(md_layout_t *layout, md_block_node_t *block,
                     pos += b;
                 }
                 if (pos > 0) {
-                    line_add_span(&hline, s, pos, frags[i].style, w);
+                    line_add_span_link(&hline, s, pos, frags[i].style, w,
+                                       frags[i].link_url);
                     total_width += w;
                 }
             }
             break;
         }
-        line_add_span(&hline, frags[i].text, frags[i].byte_len, frags[i].style, frags[i].display_width);
+        line_add_span_link(&hline, frags[i].text, frags[i].byte_len,
+                           frags[i].style, frags[i].display_width,
+                           frags[i].link_url);
         total_width += frags[i].display_width;
     }
 
@@ -698,7 +723,8 @@ static void render_list(md_layout_t *layout, md_block_node_t *list,
                 word_frag_t *frags = NULL;
                 int frag_count = 0;
                 int frag_cap = 0;
-                collect_inline_frags(child->inlines, MD_STYLE_BODY, &frags, &frag_count, &frag_cap);
+                collect_inline_frags(child->inlines, MD_STYLE_BODY, NULL,
+                                     &frags, &frag_count, &frag_cap);
 
                 int avail = terminal_width - total_indent;
                 if (avail < 1) avail = 1;
@@ -736,7 +762,8 @@ static void render_list(md_layout_t *layout, md_block_node_t *list,
                     }
                     list_pending_space = 0;
 
-                    line_add_span(&first_line, f->text, f->byte_len, f->style, f->display_width);
+                    line_add_span_link(&first_line, f->text, f->byte_len,
+                                       f->style, f->display_width, f->link_url);
                     cur_width += f->display_width;
                 }
 
@@ -784,6 +811,10 @@ static void render_blockquote(md_layout_t *layout, md_block_node_t *bq,
         for (int j = 0; j < src->span_count; j++) {
             line_add_span(&dest, src->spans[j].text, (int)strlen(src->spans[j].text),
                          MD_STYLE_BLOCKQUOTE_TEXT, src->spans[j].width);
+            if (src->spans[j].link_url != NULL) {
+                md_span_t *copied = &dest.spans[dest.span_count - 1];
+                copied->link_url = strdup(src->spans[j].link_url);
+            }
         }
 
         md_layout_add_line(layout, &dest);
@@ -793,6 +824,7 @@ static void render_blockquote(md_layout_t *layout, md_block_node_t *bq,
     for (int i = 0; i < inner->line_count; i++) {
         for (int j = 0; j < inner->lines[i].span_count; j++) {
             free(inner->lines[i].spans[j].text);
+            free(inner->lines[i].spans[j].link_url);
         }
         free(inner->lines[i].spans);
     }

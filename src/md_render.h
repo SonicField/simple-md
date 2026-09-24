@@ -15,6 +15,7 @@
 
 typedef struct {
     char        *text;      /* UTF-8 text content (owned) */
+    char        *link_url;  /* Link target (owned), or NULL */
     term_style_t  style;     /* Colour + attributes */
     int          width;     /* Display width in columns */
 } md_span_t;

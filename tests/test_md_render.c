@@ -445,14 +445,22 @@ TEST(link_renders_url) {
     /* Link text should appear but URL should NOT */
     int found_text = 0;
     int found_url = 0;
+    int found_link_metadata = 0;
     for (int i = 0; i < layout->line_count; i++) {
         char *t = line_text(&layout->lines[i]);
         if (strstr(t, "here")) found_text = 1;
         if (strstr(t, "example.com")) found_url = 1;
         free(t);
+        for (int j = 0; j < layout->lines[i].span_count; j++) {
+            md_span_t *span = &layout->lines[i].spans[j];
+            if (span->link_url != NULL &&
+                strcmp(span->link_url, "https://example.com") == 0)
+                found_link_metadata = 1;
+        }
     }
     T_ASSERT(found_text, "link text should appear in rendered output");
     T_ASSERT(!found_url, "link URL should NOT appear in rendered output");
+    T_ASSERT(found_link_metadata, "link target should be retained as span metadata");
     md_layout_destroy(layout);
     md_block_destroy(doc);
 }
