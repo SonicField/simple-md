@@ -29,5 +29,6 @@ int md_search_begin(md_search_t *search, const md_layout_t *layout,
                     const char *query, int start_line);
 
 const md_match_t *md_search_current(const md_search_t *search);
+const md_match_t *md_search_next(md_search_t *search);
 
 #endif

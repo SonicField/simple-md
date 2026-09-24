@@ -337,6 +337,11 @@ int main(int argc, char *argv[]) {
                 }
                 break;
             }
+            if (event.byte == 'n' && search.match_count > 0) {
+                const md_match_t *match = md_search_next(&search);
+                md_viewport_reveal_line(&vs, match->line);
+                break;
+            }
             if (event.byte == 'h' || event.byte == 'H' || event.byte == '?') {
                 md_viewport_draw_help(&vs);
                 while (1) {

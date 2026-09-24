@@ -141,6 +141,9 @@ def main() -> int:
     search_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", search_output)
     assert b"/Line 20" in search_text, "search query status was not rendered"
     assert b"Line 20" in search_text, "search did not reveal its first match"
+    next_output = run_viewer(b"/Line\nnq", fixture=LONG_FIXTURE)
+    next_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", next_output)
+    assert b"2/25" in next_text, "n did not advance to the second match"
     print("test_terminal: PASS")
     return 0
 

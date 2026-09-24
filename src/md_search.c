@@ -105,3 +105,9 @@ const md_match_t *md_search_current(const md_search_t *search) {
         search->current_index >= search->match_count) return NULL;
     return &search->matches[search->current_index];
 }
+
+const md_match_t *md_search_next(md_search_t *search) {
+    if (search == NULL || search->match_count == 0) return NULL;
+    search->current_index = (search->current_index + 1) % search->match_count;
+    return &search->matches[search->current_index];
+}

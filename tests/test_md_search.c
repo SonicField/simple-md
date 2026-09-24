@@ -42,6 +42,14 @@ int main(void) {
     if (match == NULL || match->line != 1 || match->byte_start != 0)
         fail("search did not begin at the requested line");
 
+    match = md_search_next(&search);
+    if (match == NULL || match->line != 1 || match->byte_start != 5)
+        fail("next search did not advance to the next occurrence");
+    md_search_next(&search);
+    match = md_search_next(&search);
+    if (match == NULL || match->line != 0 || match->byte_start != 6)
+        fail("next search did not wrap to the first occurrence");
+
     if (!md_search_begin(&search, &layout, "ALPHA", 2))
         fail("search did not wrap to the beginning");
     match = md_search_current(&search);
@@ -54,6 +62,8 @@ int main(void) {
         fail("empty search unexpectedly matched");
     if (md_search_begin(&search, &layout, "missing", 0))
         fail("missing query unexpectedly matched");
+    if (md_search_next(&search) != NULL)
+        fail("next search matched without an active result set");
 
     md_search_destroy(&search);
     puts("test_md_search: PASS");
