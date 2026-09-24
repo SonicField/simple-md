@@ -6,10 +6,25 @@
 #include <stdio.h>
 #include <string.h>
 
+static int styling_enabled = 1;
+
+void term_style_set_enabled(int enabled) {
+    styling_enabled = enabled != 0;
+}
+
+int term_style_is_enabled(void) {
+    return styling_enabled;
+}
+
 int term_style_start(const term_style_t *style, char *buf, size_t bufsize) {
     ASSERT_MSG(style != NULL, "term_style_start: style is NULL");
     ASSERT_MSG(buf != NULL, "term_style_start: buf is NULL");
     if (bufsize < 5) return -1;
+
+    if (!styling_enabled) {
+        buf[0] = '\0';
+        return 0;
+    }
 
     if (style->attrs == 0 && style->fg == TERM_COLOR_NONE &&
         style->bg == TERM_COLOR_NONE) {
@@ -59,6 +74,10 @@ int term_style_start(const term_style_t *style, char *buf, size_t bufsize) {
 int term_style_reset(char *buf, size_t bufsize) {
     ASSERT_MSG(buf != NULL, "term_style_reset: buf is NULL");
     if (bufsize < 5) return -1;
+    if (!styling_enabled) {
+        buf[0] = '\0';
+        return 0;
+    }
     memcpy(buf, "\033[0m", 5);
     return 4;
 }
@@ -74,5 +93,5 @@ void term_style_fstart(const term_style_t *style, FILE *out) {
 
 void term_style_freset(FILE *out) {
     ASSERT_MSG(out != NULL, "term_style_freset: out is NULL");
-    fputs("\033[0m", out);
+    if (styling_enabled) fputs("\033[0m", out);
 }

@@ -30,4 +30,8 @@ int term_style_reset(char *buf, size_t bufsize);
 void term_style_fstart(const term_style_t *style, FILE *out);
 void term_style_freset(FILE *out);
 
+/* Globally enable or suppress SGR styling. Enabled by default. */
+void term_style_set_enabled(int enabled);
+int term_style_is_enabled(void);
+
 #endif

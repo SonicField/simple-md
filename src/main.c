@@ -14,6 +14,7 @@
 #include "md_viewport.h"
 #include "md_terminal.h"
 #include "sm_assert.h"
+#include "term_style.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -29,11 +30,12 @@ typedef enum {
 } pager_mode_t;
 
 static void print_usage(FILE *out) {
-    fputs("Usage: simple-md [--width=COLUMNS] [--pager=MODE] [FILE]\n"
+    fputs("Usage: simple-md [--width=COLUMNS] [--pager=MODE] [--no-color] [FILE]\n"
           "       simple-md --help\n"
           "\n"
           "Read Markdown from FILE, or from standard input when FILE is '-' or omitted.\n"
           "Pager MODE is auto, always, or never (default: auto).\n"
+          "Set --no-color or NO_COLOR to suppress terminal styling.\n"
           "Press q or Escape to quit.\n", out);
 }
 
@@ -98,6 +100,7 @@ static char *read_stream(FILE *stream) {
 int main(int argc, char *argv[]) {
     int force_cols = 0;
     pager_mode_t pager_mode = PAGER_AUTO;
+    int no_color = getenv("NO_COLOR") != NULL;
     const char *input_path = NULL;
     int options_done = 0;
 
@@ -127,6 +130,8 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "simple-md: invalid pager mode: %s\n", mode);
                 return 2;
             }
+        } else if (!options_done && strcmp(arg, "--no-color") == 0) {
+            no_color = 1;
         } else if (!options_done && arg[0] == '-' && strcmp(arg, "-") != 0) {
             fprintf(stderr, "simple-md: unknown option: %s\n", arg);
             print_usage(stderr);
@@ -138,6 +143,8 @@ int main(int argc, char *argv[]) {
             input_path = arg;
         }
     }
+
+    term_style_set_enabled(!no_color);
 
     FILE *input_stream = stdin;
     if (input_path != NULL && strcmp(input_path, "-") != 0) {

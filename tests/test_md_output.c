@@ -46,6 +46,19 @@ int main(void) {
     if (strstr(actual, "Hello") == NULL || strstr(actual, "world") == NULL)
         fail("styled output omitted text");
 
+    output = tmpfile();
+    if (output == NULL) fail("third tmpfile failed");
+    term_style_set_enabled(0);
+    if (md_output_write_styled(output, &layout) != 0)
+        fail("color-disabled write failed");
+    term_style_set_enabled(1);
+    rewind(output);
+    memset(actual, 0, sizeof(actual));
+    length = fread(actual, 1, sizeof(actual) - 1, output);
+    fclose(output);
+    if (length != 13 || strcmp(actual, "Hello world\n\n") != 0)
+        fail("color-disabled output was not plain styled text");
+
     puts("test_md_output: PASS");
     return 0;
 }
