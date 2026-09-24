@@ -103,11 +103,12 @@ implementation. Unsupported constructs are rendered as ordinary text.
 ```sh
 make test       # unit suite plus real-PTY CLI checks
 make sanitize   # unit tests under AddressSanitizer and UBSan
+make analyze    # GCC static analysis; warnings fail the build
 ```
 
 The terminal test starts the actual executable in a pseudo-terminal and checks
 both `q` and Escape exits, including alternate-screen entry and restoration.
-Python 3 is needed only for this PTY test.
+Python 3 is needed only for this PTY test. The analysis target requires GCC.
 
 ## Architecture
 

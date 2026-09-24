@@ -26,3 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make sanitize
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make analyze

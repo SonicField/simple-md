@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Harden required parser and renderer allocations and make GCC static analysis
+  a CI release gate.
+
 ## 0.2.0 — 2026-09-24
 
 - Render plain text without control sequences when output is redirected.

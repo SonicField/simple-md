@@ -41,9 +41,10 @@ The extraction is not complete if any of these checks fails:
 5. Alternate-screen entry is not paired with restoration on normal exit.
 6. ASan or UBSan reports a failure while running the unit suite.
 7. Installation ignores `PREFIX` or `DESTDIR`.
+8. GCC's static analyzer reports an unchecked failure or ownership defect.
 
-Run `make test` and `make sanitize` to reproduce the behavioral checks. A
-clean-room copy build additionally detects accidental dependencies on files
+Run `make test`, `make sanitize`, and `make analyze` to reproduce the checks.
+A clean-room copy build additionally detects accidental dependencies on files
 outside this repository.
 
 ## Verification record
@@ -66,10 +67,11 @@ CI job was not run locally. An optional Valgrind run was inconclusive because
 the local wrapper stalled on the first test; ASan/UBSan is the completed
 dynamic-analysis result.
 
-GCC's optional `-fanalyzer` mode is not currently a release gate. It reports
-possible unchecked allocation failures in inherited parser and table-renderer
-paths. These paths passed the runtime sanitizer suite, but allocation-failure
-handling remains follow-up hardening work.
+The parser, renderer, table, search, outline, and AST now use a shared
+fail-fast allocator for required state. Optional viewport and BiDi allocations
+retain their checked fallback behavior. GCC's `-fanalyzer` completes without
+diagnostics, and `make analyze` plus the CI static-analysis job make that result
+a release gate.
 
 ## Post-extraction feature verification
 
