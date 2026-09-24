@@ -55,6 +55,7 @@ Navigation:
 | Page Up / Page Down | Scroll one page |
 | Home / End | Jump to the beginning or end |
 | Left / Right | Pan wide tables and code blocks |
+| `/` | Search forward |
 | `h` / `?` | Show help |
 | `q` / Escape | Quit |
 

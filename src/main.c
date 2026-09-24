@@ -11,6 +11,7 @@
 #include "md_parse.h"
 #include "md_render.h"
 #include "md_output.h"
+#include "md_search.h"
 #include "md_viewport.h"
 #include "md_terminal.h"
 #include "sm_assert.h"
@@ -49,6 +50,32 @@ static int parse_width(const char *value, int *width) {
     }
     *width = (int)parsed;
     return 0;
+}
+
+static void remove_last_utf8_byte_sequence(char *text, size_t *length) {
+    if (*length == 0) return;
+    (*length)--;
+    while (*length > 0 && ((unsigned char)text[*length] & 0xC0) == 0x80)
+        (*length)--;
+    text[*length] = '\0';
+}
+
+static int read_search_query(md_view_state_t *view, char *query, size_t capacity) {
+    size_t length = 0;
+    query[0] = '\0';
+
+    for (;;) {
+        md_viewport_draw_search_prompt(view, query);
+        md_input_event_t event = md_terminal_read_event();
+        if (event.key == MD_KEY_ENTER) return length > 0;
+        if (event.key == MD_KEY_ESCAPE || event.key == MD_KEY_EOF) return 0;
+        if (event.key == MD_KEY_BACKSPACE) {
+            remove_last_utf8_byte_sequence(query, &length);
+        } else if (event.key == MD_KEY_TEXT && length + 1 < capacity) {
+            query[length++] = (char)event.byte;
+            query[length] = '\0';
+        }
+    }
 }
 
 /* Read a stream into a malloc'd NUL-terminated buffer.
@@ -232,9 +259,11 @@ int main(int argc, char *argv[]) {
 
     /* 6. Initialize viewport and draw initial screen */
     md_view_state_t vs;
+    md_search_t search;
     memset(&vs, 0, sizeof(vs));
+    md_search_init(&search);
     md_viewport_init(&vs, rows, cols, layout->line_count);
-    md_viewport_draw(&vs, layout);
+    md_viewport_draw_search(&vs, layout, &search);
     fflush(stdout);
 
     /* 7. Event loop */
@@ -251,10 +280,12 @@ int main(int argc, char *argv[]) {
             int max_off = vs.total_lines - vs.visible_rows;
             if (max_off < 0) max_off = 0;
             if (vs.scroll_offset > max_off) vs.scroll_offset = max_off;
+            if (search.query[0] != '\0')
+                md_search_begin(&search, layout, search.query, vs.scroll_offset);
             /* Clear entire screen and reset cursor for clean redraw */
             fputs("\033[2J\033[H", stdout);
             fflush(stdout);
-            md_viewport_draw(&vs, layout);
+            md_viewport_draw_search(&vs, layout, &search);
             fflush(stdout);
         }
 
@@ -296,6 +327,16 @@ int main(int argc, char *argv[]) {
             break;
         case MD_KEY_TEXT:
             if (event.byte == 'q' || event.byte == 'Q') goto done;
+            if (event.byte == '/') {
+                char query[MD_SEARCH_QUERY_MAX + 1];
+                if (read_search_query(&vs, query, sizeof(query))) {
+                    if (md_search_begin(&search, layout, query, vs.scroll_offset)) {
+                        const md_match_t *match = md_search_current(&search);
+                        md_viewport_reveal_line(&vs, match->line);
+                    }
+                }
+                break;
+            }
             if (event.byte == 'h' || event.byte == 'H' || event.byte == '?') {
                 md_viewport_draw_help(&vs);
                 while (1) {
@@ -320,13 +361,14 @@ int main(int argc, char *argv[]) {
         }
 
         if (need_draw) {
-            md_viewport_draw(&vs, layout);
+            md_viewport_draw_search(&vs, layout, &search);
             fflush(stdout);
         }
     }
 
 done:
     md_terminal_leave_raw();
+    md_search_destroy(&search);
     md_layout_destroy(layout);
     md_block_destroy(doc);
     return 0;

@@ -137,7 +137,8 @@ void md_viewport_pan_left(md_view_state_t *vs) {
     if (vs->h_offset < 0) vs->h_offset = 0;
 }
 
-void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
+static void draw_viewport(md_view_state_t *vs, md_layout_t *layout,
+                          const md_search_t *search) {
     ASSERT_MSG(vs != NULL, "md_viewport_draw: vs is NULL");
     ASSERT_MSG(layout != NULL, "md_viewport_draw: layout is NULL");
 
@@ -214,15 +215,18 @@ void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
         int *byte_off = malloc((size_t)total_cps * sizeof(int));
         /* byte_len[i] = byte length of this character's UTF-8 encoding */
         int *byte_len_arr = malloc((size_t)total_cps * sizeof(int));
+        size_t *line_byte_off = malloc((size_t)total_cps * sizeof(size_t));
         int *visual_map = malloc((size_t)total_cps * sizeof(int));
 
-        if (!cps || !span_idx || !byte_off || !byte_len_arr || !visual_map) {
+        if (!cps || !span_idx || !byte_off || !byte_len_arr ||
+            !line_byte_off || !visual_map) {
             free(cps); free(span_idx); free(byte_off);
-            free(byte_len_arr); free(visual_map);
+            free(byte_len_arr); free(line_byte_off); free(visual_map);
             goto line_done;
         }
 
         int ci = 0;
+        size_t line_base = 0;
         for (int s = 0; s < dl->span_count; s++) {
             const char *text = dl->spans[s].text;
             int tlen = (int)strlen(text);
@@ -234,9 +238,11 @@ void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
                 span_idx[ci] = s;
                 byte_off[ci] = pos;
                 byte_len_arr[ci] = blen;
+                line_byte_off[ci] = line_base + (size_t)pos;
                 ci++;
                 pos += blen;
             }
+            line_base += (size_t)tlen;
         }
 
         /* --- Pass 3: BiDi reorder (logical -> visual) --- */
@@ -245,6 +251,8 @@ void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
         /* --- Pass 4: output in visual order with h_off applied --- */
         int col = 0;
         int prev_span = -1;
+        int prev_highlight = 0;
+        const md_match_t *match = md_search_current(search);
         for (int v = 0; v < total_cps; v++) {
             int li = visual_map[v];           /* logical index */
             uint32_t cp = cps[li];
@@ -265,12 +273,18 @@ void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
 
             /* Emit style change when the source span changes */
             int si = span_idx[li];
-            if (si != prev_span) {
+            int highlighted = match != NULL && match->line == line_idx &&
+                line_byte_off[li] >= match->byte_start &&
+                line_byte_off[li] < match->byte_end;
+            if (si != prev_span || highlighted != prev_highlight) {
                 if (prev_span >= 0) {
                     term_style_freset(out);
                 }
-                term_style_fstart(&dl->spans[si].style, out);
+                term_style_t style = dl->spans[si].style;
+                if (highlighted) style.attrs |= TERM_ATTR_INVERSE;
+                term_style_fstart(&style, out);
                 prev_span = si;
+                prev_highlight = highlighted;
             }
 
             /* Write the UTF-8 bytes for this character */
@@ -286,6 +300,7 @@ void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
         free(span_idx);
         free(byte_off);
         free(byte_len_arr);
+        free(line_byte_off);
         free(visual_map);
 
 line_done:
@@ -317,9 +332,21 @@ line_done:
     }
 
     char status[256];
-    int slen = snprintf(status, sizeof(status),
+    int slen;
+    if (search != NULL && search->query[0] != '\0') {
+        if (search->match_count > 0) {
+            slen = snprintf(status, sizeof(status), " /%s  %d/%d  Line %d/%d",
+                            search->query, search->current_index + 1,
+                            search->match_count, vs->scroll_offset + 1, total);
+        } else {
+            slen = snprintf(status, sizeof(status), " Pattern not found: %s",
+                            search->query);
+        }
+    } else {
+        slen = snprintf(status, sizeof(status),
                         " Line %d/%d  %d%%",
                         vs->scroll_offset + 1, total, pct);
+    }
 
     /* Write status text and pad to full terminal width */
     fwrite(status, 1, (size_t)slen, out);
@@ -329,6 +356,43 @@ line_done:
 
     term_style_freset(out);
     fflush(out);
+}
+
+void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout) {
+    draw_viewport(vs, layout, NULL);
+}
+
+void md_viewport_draw_search(md_view_state_t *vs, md_layout_t *layout,
+                             const md_search_t *search) {
+    draw_viewport(vs, layout, search);
+}
+
+void md_viewport_reveal_line(md_view_state_t *vs, int line) {
+    ASSERT_MSG(vs != NULL, "md_viewport_reveal_line: vs is NULL");
+    if (line < vs->scroll_offset) {
+        vs->scroll_offset = line;
+    } else if (line >= vs->scroll_offset + vs->visible_rows) {
+        vs->scroll_offset = line - vs->visible_rows + 1;
+    }
+    clamp_scroll(vs);
+}
+
+void md_viewport_draw_search_prompt(const md_view_state_t *vs,
+                                    const char *query) {
+    ASSERT_MSG(vs != NULL, "md_viewport_draw_search_prompt: vs is NULL");
+    ASSERT_MSG(query != NULL, "md_viewport_draw_search_prompt: query is NULL");
+
+    fprintf(stdout, "\033[%d;1H", vs->visible_rows + 1);
+    term_style_fstart(&MD_STYLE_STATUS_BAR, stdout);
+    fputc('/', stdout);
+    int used = 1;
+    for (const unsigned char *p = (const unsigned char *)query;
+         *p != '\0' && used < vs->terminal_cols; p++, used++) {
+        fputc(*p, stdout);
+    }
+    while (used++ < vs->terminal_cols) fputc(' ', stdout);
+    term_style_freset(stdout);
+    fflush(stdout);
 }
 
 void md_viewport_draw_help(md_view_state_t *vs) {

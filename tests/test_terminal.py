@@ -137,6 +137,10 @@ def main() -> int:
         expect_color=False,
         env_extra={"NO_COLOR": "1"},
     )
+    search_output = run_viewer(b"/Line 20\nq", fixture=LONG_FIXTURE)
+    search_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", search_output)
+    assert b"/Line 20" in search_text, "search query status was not rendered"
+    assert b"Line 20" in search_text, "search did not reveal its first match"
     print("test_terminal: PASS")
     return 0
 

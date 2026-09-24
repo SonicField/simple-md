@@ -2,6 +2,7 @@
 #define MD_VIEWPORT_H
 
 #include "md_render.h"
+#include "md_search.h"
 
 typedef struct {
     int scroll_offset;   /* topmost visible line, >= 0 */
@@ -41,6 +42,17 @@ void md_viewport_pan_left(md_view_state_t *vs);
 
 /* Draw the current viewport to stdout. */
 void md_viewport_draw(md_view_state_t *vs, md_layout_t *layout);
+
+/* Draw with an optional active search match and search status. */
+void md_viewport_draw_search(md_view_state_t *vs, md_layout_t *layout,
+                             const md_search_t *search);
+
+/* Ensure a document line is visible without moving it unnecessarily. */
+void md_viewport_reveal_line(md_view_state_t *vs, int line);
+
+/* Draw an editable search prompt in the status row. */
+void md_viewport_draw_search_prompt(const md_view_state_t *vs,
+                                    const char *query);
 
 /* Draw a help screen showing key bindings. */
 void md_viewport_draw_help(md_view_state_t *vs);
