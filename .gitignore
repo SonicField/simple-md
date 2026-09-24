@@ -1,0 +1,7 @@
+/simple-md
+/build/
+*.o
+*.dSYM/
+*.gcda
+*.gcno
+*.gcov
