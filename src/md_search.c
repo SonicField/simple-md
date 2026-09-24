@@ -67,11 +67,14 @@ int md_search_begin(md_search_t *search, const md_layout_t *layout,
     ASSERT_MSG(layout != NULL, "md_search_begin: layout is NULL");
     ASSERT_MSG(query != NULL, "md_search_begin: query is NULL");
 
+    char query_copy[MD_SEARCH_QUERY_MAX + 1];
+    snprintf(query_copy, sizeof(query_copy), "%s", query);
+
     free(search->matches);
     search->matches = NULL;
     search->match_count = 0;
     search->current_index = -1;
-    snprintf(search->query, sizeof(search->query), "%s", query);
+    strcpy(search->query, query_copy);
 
     size_t query_length = strlen(search->query);
     if (query_length == 0) return 0;

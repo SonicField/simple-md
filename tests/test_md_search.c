@@ -65,6 +65,11 @@ int main(void) {
 
     if (!md_search_begin(&search, &layout, "caf\xc3\xa9", 0))
         fail("exact UTF-8 search failed");
+
+    if (!md_search_begin(&search, &layout, search.query, 0))
+        fail("rebuilding with the active query lost search state");
+    if (strcmp(search.query, "caf\xc3\xa9") != 0)
+        fail("rebuilding with the active query corrupted the query");
     if (md_search_begin(&search, &layout, "", 0))
         fail("empty search unexpectedly matched");
     if (md_search_begin(&search, &layout, "missing", 0))
