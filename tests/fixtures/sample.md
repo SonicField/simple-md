@@ -1,6 +1,6 @@
 # Simple Markdown
 
-This document exercises **styled text**, `inline code`, and a table.
+This document exercises **styled text**, `inline code`, a [link](https://example.com/docs), and a table.
 
 | Feature | Included |
 |:---|---:|

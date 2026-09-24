@@ -43,6 +43,7 @@ Options:
 --width=COLUMNS  Override the detected terminal width (1–10000)
 --pager=MODE     Select auto, always, or never (default: auto)
 --no-color       Suppress colours and text attributes
+--links=MODE     Emit OSC 8 links: auto, always, or never (default: auto)
 -h, --help       Show usage
 -V, --version    Show the version
 ```
@@ -70,6 +71,11 @@ the rendered output in terminal scrollback.
 Setting the [`NO_COLOR`](https://no-color.org/) environment variable has the
 same effect as `--no-color`. Pager navigation continues to use terminal control
 sequences; redirected output never contains them.
+
+Markdown links use OSC 8 hyperlinks on interactive terminals. Use
+`--links=never` if a terminal does not support them, or `--links=always` to
+override automatic detection. Link targets containing terminal control bytes
+are rejected rather than emitted.
 
 ## Markdown support
 

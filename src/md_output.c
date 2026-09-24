@@ -1,6 +1,7 @@
 #include "md_output.h"
 #include "sm_assert.h"
 #include "term_style.h"
+#include "term_link.h"
 
 #include <stddef.h>
 
@@ -27,9 +28,11 @@ int md_output_write_styled(FILE *out, const md_layout_t *layout) {
         const md_display_line_t *line = &layout->lines[line_index];
         for (int span_index = 0; span_index < line->span_count; span_index++) {
             const md_span_t *span = &line->spans[span_index];
+            int linked = term_link_fstart(span->link_url, out);
             term_style_fstart(&span->style, out);
             if (fputs(span->text, out) == EOF) return -1;
             term_style_freset(out);
+            if (linked) term_link_fend(out);
         }
         if (fputc('\n', out) == EOF) return -1;
     }

@@ -17,6 +17,7 @@
 #include "md_terminal.h"
 #include "sm_assert.h"
 #include "term_style.h"
+#include "term_link.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -31,13 +32,20 @@ typedef enum {
     PAGER_NEVER
 } pager_mode_t;
 
+typedef enum {
+    LINKS_AUTO,
+    LINKS_ALWAYS,
+    LINKS_NEVER
+} link_mode_t;
+
 static void print_usage(FILE *out) {
-    fputs("Usage: simple-md [--width=COLUMNS] [--pager=MODE] [--no-color] [FILE]\n"
+    fputs("Usage: simple-md [OPTIONS] [FILE]\n"
           "       simple-md --help\n"
           "\n"
           "Read Markdown from FILE, or from standard input when FILE is '-' or omitted.\n"
           "Pager MODE is auto, always, or never (default: auto).\n"
           "Set --no-color or NO_COLOR to suppress terminal styling.\n"
+          "Link MODE is auto, always, or never (default: auto).\n"
           "Press q or Escape to quit.\n", out);
 }
 
@@ -160,6 +168,7 @@ static char *read_stream(FILE *stream) {
 int main(int argc, char *argv[]) {
     int force_cols = 0;
     pager_mode_t pager_mode = PAGER_AUTO;
+    link_mode_t link_mode = LINKS_AUTO;
     int no_color = getenv("NO_COLOR") != NULL;
     const char *input_path = NULL;
     int options_done = 0;
@@ -192,6 +201,15 @@ int main(int argc, char *argv[]) {
             }
         } else if (!options_done && strcmp(arg, "--no-color") == 0) {
             no_color = 1;
+        } else if (!options_done && strncmp(arg, "--links=", 8) == 0) {
+            const char *mode = arg + 8;
+            if (strcmp(mode, "auto") == 0) link_mode = LINKS_AUTO;
+            else if (strcmp(mode, "always") == 0) link_mode = LINKS_ALWAYS;
+            else if (strcmp(mode, "never") == 0) link_mode = LINKS_NEVER;
+            else {
+                fprintf(stderr, "simple-md: invalid link mode: %s\n", mode);
+                return 2;
+            }
         } else if (!options_done && arg[0] == '-' && strcmp(arg, "-") != 0) {
             fprintf(stderr, "simple-md: unknown option: %s\n", arg);
             print_usage(stderr);
@@ -234,6 +252,10 @@ int main(int argc, char *argv[]) {
     /* Redirected output must remain useful in pipelines and must never wait
      * for terminal input. */
     int output_is_tty = isatty(STDOUT_FILENO);
+    const char *term = getenv("TERM");
+    int auto_links = output_is_tty && term != NULL && strcmp(term, "dumb") != 0;
+    term_link_set_enabled(link_mode == LINKS_ALWAYS ||
+                          (link_mode == LINKS_AUTO && auto_links));
     if (!output_is_tty) {
         if (pager_mode == PAGER_ALWAYS) {
             fprintf(stderr, "simple-md: cannot page when output is not a terminal\n");

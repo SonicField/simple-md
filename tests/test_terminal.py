@@ -137,6 +137,15 @@ def main() -> int:
         expect_color=False,
         env_extra={"NO_COLOR": "1"},
     )
+    linked_output = run_viewer(b"q", extra_args=("--pager=always",))
+    assert b"\x1b]8;;https://example.com/docs\x1b\\" in linked_output, (
+        "safe link did not produce an OSC 8 opener"
+    )
+    assert b"\x1b]8;;\x1b\\" in linked_output, "OSC 8 link was not closed"
+    unlinked_output = run_viewer(
+        b"q", extra_args=("--pager=always", "--links=never")
+    )
+    assert b"\x1b]8;;" not in unlinked_output, "--links=never emitted OSC 8"
     search_output = run_viewer(b"/Line 20\nq", fixture=LONG_FIXTURE)
     search_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", search_output)
     assert b"/Line 20" in search_text, "search query status was not rendered"

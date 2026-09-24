@@ -13,6 +13,7 @@
 #include "md_style.h"
 #include "md_render.h"
 #include "term_style.h"
+#include "term_link.h"
 #include "unicode_width.h"
 #include "bidi.h"
 #include "sm_assert.h"
@@ -252,6 +253,7 @@ static void draw_viewport(md_view_state_t *vs, md_layout_t *layout,
         int col = 0;
         int prev_span = -1;
         int prev_highlight = 0;
+        const char *active_link = NULL;
         const md_match_t *match = md_search_current(search);
         for (int v = 0; v < total_cps; v++) {
             int li = visual_map[v];           /* logical index */
@@ -287,6 +289,14 @@ static void draw_viewport(md_view_state_t *vs, md_layout_t *layout,
                 prev_highlight = highlighted;
             }
 
+            const char *link = dl->spans[si].link_url;
+            int link_changed = (active_link == NULL) != (link == NULL) ||
+                (active_link != NULL && link != NULL && strcmp(active_link, link) != 0);
+            if (link_changed) {
+                if (active_link != NULL) term_link_fend(out);
+                active_link = term_link_fstart(link, out) ? link : NULL;
+            }
+
             /* Write the UTF-8 bytes for this character */
             const char *text = dl->spans[si].text;
             fwrite(text + byte_off[li], 1, (size_t)byte_len_arr[li], out);
@@ -295,6 +305,7 @@ static void draw_viewport(md_view_state_t *vs, md_layout_t *layout,
         if (prev_span >= 0) {
             term_style_freset(out);
         }
+        if (active_link != NULL) term_link_fend(out);
 
         free(cps);
         free(span_idx);

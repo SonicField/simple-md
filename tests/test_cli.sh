@@ -32,6 +32,12 @@ fi
 grep -Fq 'invalid pager mode' "$tmp_dir/err" ||
     fail "invalid pager mode was not explained"
 
+if ./simple-md --links=sometimes </dev/null >"$tmp_dir/out" 2>"$tmp_dir/err"; then
+    fail "invalid link mode unexpectedly succeeded"
+fi
+grep -Fq 'invalid link mode' "$tmp_dir/err" ||
+    fail "invalid link mode was not explained"
+
 if ./simple-md "$tmp_dir/missing.md" >"$tmp_dir/out" 2>"$tmp_dir/err"; then
     fail "missing file unexpectedly succeeded"
 fi
@@ -50,6 +56,9 @@ if LC_ALL=C grep -q "$(printf '\033')" "$tmp_dir/plain"; then
 fi
 if grep -Fq '**bold**' "$tmp_dir/plain"; then
     fail "plain output leaked Markdown emphasis delimiters"
+fi
+if LC_ALL=C grep -q "$(printf '\033]8;')" "$tmp_dir/plain"; then
+    fail "redirected output contained an OSC 8 hyperlink"
 fi
 
 echo "test_cli: PASS"
