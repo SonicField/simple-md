@@ -10,6 +10,7 @@
 
 #include "md_parse.h"
 #include "md_render.h"
+#include "md_output.h"
 #include "md_viewport.h"
 #include "md_terminal.h"
 #include "sm_assert.h"
@@ -19,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static void print_usage(FILE *out) {
     fputs("Usage: simple-md [--width=COLUMNS] [FILE]\n"
@@ -144,6 +146,21 @@ int main(int argc, char *argv[]) {
     /* 2. Parse into AST */
     md_block_node_t *doc = md_parse(input);
     free(input);  /* parser made its own copies */
+
+    /* Redirected output must remain useful in pipelines and must never wait
+     * for terminal input. */
+    if (!isatty(STDOUT_FILENO)) {
+        int cols = force_cols > 0 ? force_cols : 80;
+        md_layout_t *plain_layout = md_render(doc, cols);
+        int write_status = md_output_write_plain(stdout, plain_layout);
+        md_layout_destroy(plain_layout);
+        md_block_destroy(doc);
+        if (write_status != 0) {
+            fprintf(stderr, "simple-md: failed to write output\n");
+            return 1;
+        }
+        return 0;
+    }
 
     /* 3. Enter raw mode first (opens /dev/tty for correct terminal queries) */
     if (md_terminal_enter_raw() != 0) {

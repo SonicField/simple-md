@@ -35,4 +35,15 @@ grep -Fq 'cannot open' "$tmp_dir/err" || fail "missing file was not explained"
 ./simple-md "$tmp_dir/empty.md"
 ./simple-md </dev/null
 
+printf '# Heading\n\nA **bold** [link](https://example.com).\n' |
+    ./simple-md --width=40 >"$tmp_dir/plain"
+grep -Fq 'Heading' "$tmp_dir/plain" || fail "plain output omitted heading text"
+grep -Fq 'A bold link.' "$tmp_dir/plain" || fail "plain output omitted rendered body text"
+if LC_ALL=C grep -q "$(printf '\033')" "$tmp_dir/plain"; then
+    fail "plain output contained an escape byte"
+fi
+if grep -Fq '**bold**' "$tmp_dir/plain"; then
+    fail "plain output leaked Markdown emphasis delimiters"
+fi
+
 echo "test_cli: PASS"

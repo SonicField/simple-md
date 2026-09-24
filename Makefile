@@ -17,11 +17,13 @@ HIGHLIGHT_SOURCES = src/md_highlight.c src/md_lang_c.c src/md_lang_js.c \
 
 SOURCES = src/main.c src/md_ast.c src/md_parse.c src/md_render.c \
 	src/md_table.c src/md_style.c src/md_viewport.c src/md_terminal.c \
-	$(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c src/bidi.c
+	src/md_output.c $(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c \
+	src/bidi.c
 
 TEST_BINS = $(BUILD_DIR)/test_md_ast $(BUILD_DIR)/test_md_parse \
 	$(BUILD_DIR)/test_md_render $(BUILD_DIR)/test_md_table \
-	$(BUILD_DIR)/test_md_viewport $(BUILD_DIR)/test_md_highlight
+	$(BUILD_DIR)/test_md_viewport $(BUILD_DIR)/test_md_highlight \
+	$(BUILD_DIR)/test_md_output
 
 .PHONY: all clean install test unit integration debug sanitize
 
@@ -57,6 +59,9 @@ $(BUILD_DIR)/test_md_viewport: tests/test_md_viewport.c src/md_viewport.c \
 
 $(BUILD_DIR)/test_md_highlight: tests/test_md_highlight.c $(HIGHLIGHT_SOURCES) \
 	src/md_style.c src/term_style.c | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
+
+$(BUILD_DIR)/test_md_output: tests/test_md_output.c src/md_output.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 unit: $(TEST_BINS)

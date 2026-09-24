@@ -4,6 +4,9 @@
 documents with colour and text attributes in an alternate-screen pager, then
 restores the terminal when it exits.
 
+When output is redirected, it writes rendered plain text without terminal
+control sequences and exits without waiting for input.
+
 It is implemented in C and has no runtime dependencies beyond a POSIX-like
 system and a UTF-8 terminal with 256-colour support.
 
@@ -72,7 +75,7 @@ implementation. Unsupported constructs are rendered as ordinary text.
 ## Tests
 
 ```sh
-make test       # 214 unit cases plus real-PTY CLI checks
+make test       # unit suite plus real-PTY CLI checks
 make sanitize   # unit tests under AddressSanitizer and UBSan
 ```
 
