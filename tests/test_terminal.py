@@ -85,8 +85,15 @@ def run_viewer(quit_key: bytes, use_stdin: bool = False) -> bytes:
     assert return_code == 0, f"viewer exited with status {return_code}"
     assert b"Simple Markdown" in plain_output, "rendered heading was not observed"
     assert "┌".encode() in output, "rendered table border was not observed"
-    assert b"\x1b[?1049h" in output, "alternate-screen entry was not observed"
-    assert b"\x1b[?1049l" in output, "alternate-screen restoration was not observed"
+    assert b"Line 1/" in plain_output, "viewport status was not observed"
+    assert output.count(b"\x1b[?1049h") == 1, (
+        "alternate screen must be entered exactly once"
+    )
+    assert output.count(b"\x1b[?1049l") == 1, (
+        "alternate screen must be restored exactly once"
+    )
+    assert output.count(b"\x1b[?25l") == 1, "cursor must be hidden exactly once"
+    assert output.count(b"\x1b[?25h") == 1, "cursor must be restored exactly once"
     return bytes(output)
 
 
