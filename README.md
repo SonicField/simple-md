@@ -57,6 +57,7 @@ Navigation:
 | Left / Right | Pan wide tables and code blocks |
 | `/` | Search forward |
 | `n` | Go to the next search match, wrapping at the end |
+| `N` | Go to the previous search match, wrapping at the beginning |
 | `h` / `?` | Show help |
 | `q` / Escape | Quit |
 

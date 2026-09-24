@@ -111,3 +111,10 @@ const md_match_t *md_search_next(md_search_t *search) {
     search->current_index = (search->current_index + 1) % search->match_count;
     return &search->matches[search->current_index];
 }
+
+const md_match_t *md_search_previous(md_search_t *search) {
+    if (search == NULL || search->match_count == 0) return NULL;
+    search->current_index--;
+    if (search->current_index < 0) search->current_index = search->match_count - 1;
+    return &search->matches[search->current_index];
+}

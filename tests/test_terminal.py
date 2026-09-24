@@ -144,6 +144,9 @@ def main() -> int:
     next_output = run_viewer(b"/Line\nnq", fixture=LONG_FIXTURE)
     next_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", next_output)
     assert b"2/25" in next_text, "n did not advance to the second match"
+    previous_output = run_viewer(b"/Line\nNq", fixture=LONG_FIXTURE)
+    previous_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", previous_output)
+    assert b"25/25" in previous_text, "N did not wrap to the final match"
     print("test_terminal: PASS")
     return 0
 

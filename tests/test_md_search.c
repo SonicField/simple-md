@@ -50,6 +50,13 @@ int main(void) {
     if (match == NULL || match->line != 0 || match->byte_start != 6)
         fail("next search did not wrap to the first occurrence");
 
+    match = md_search_previous(&search);
+    if (match == NULL || match->line != 1 || match->byte_start != 10)
+        fail("previous search did not wrap to the final occurrence");
+    match = md_search_next(&search);
+    if (match == NULL || match->line != 0 || match->byte_start != 6)
+        fail("next then previous were not symmetric");
+
     if (!md_search_begin(&search, &layout, "ALPHA", 2))
         fail("search did not wrap to the beginning");
     match = md_search_current(&search);
@@ -64,6 +71,8 @@ int main(void) {
         fail("missing query unexpectedly matched");
     if (md_search_next(&search) != NULL)
         fail("next search matched without an active result set");
+    if (md_search_previous(&search) != NULL)
+        fail("previous search matched without an active result set");
 
     md_search_destroy(&search);
     puts("test_md_search: PASS");

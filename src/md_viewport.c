@@ -408,6 +408,7 @@ void md_viewport_draw_help(md_view_state_t *vs) {
         "| Left / Right | Pan wide tables and code |\n"
         "| / | Search forward |\n"
         "| n | Next search match |\n"
+        "| N | Previous search match |\n"
         "| h / ? | This help screen |\n"
         "| q / Escape | Quit |\n"
         "\n"
