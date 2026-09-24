@@ -395,6 +395,55 @@ void md_viewport_draw_search_prompt(const md_view_state_t *vs,
     fflush(stdout);
 }
 
+void md_viewport_draw_outline(const md_view_state_t *vs,
+                              const md_outline_t *outline,
+                              int selected_index) {
+    ASSERT_MSG(vs != NULL, "md_viewport_draw_outline: vs is NULL");
+    ASSERT_MSG(outline != NULL, "md_viewport_draw_outline: outline is NULL");
+
+    fputs("\033[H", stdout);
+    int entry_rows = vs->visible_rows - 1;
+    if (entry_rows < 1) entry_rows = 1;
+    int first = 0;
+    if (selected_index >= entry_rows)
+        first = selected_index - entry_rows + 1;
+
+    for (int row = 0; row < vs->visible_rows; row++) {
+        if (row == 0) {
+            term_style_fstart(&MD_STYLE_H2, stdout);
+            fputs("Document outline", stdout);
+            term_style_freset(stdout);
+        } else {
+            int index = first + row - 1;
+            if (outline->count == 0 && row == 1) {
+                fputs("  (no headings)", stdout);
+            } else if (index < outline->count) {
+                term_style_t style = MD_STYLE_BODY;
+                if (index == selected_index) style.attrs |= TERM_ATTR_INVERSE;
+                term_style_fstart(&style, stdout);
+                fputs(index == selected_index ? "> " : "  ", stdout);
+                for (int depth = 1; depth < outline->entries[index].level; depth++)
+                    fputs("  ", stdout);
+                fputs(outline->entries[index].title, stdout);
+                term_style_freset(stdout);
+            }
+        }
+        fputs("\033[0m\033[K", stdout);
+        if (row < vs->visible_rows - 1) fputs("\r\n", stdout);
+    }
+
+    fputs("\r\n", stdout);
+    term_style_fstart(&MD_STYLE_STATUS_BAR, stdout);
+    if (outline->count > 0) {
+        fprintf(stdout, " Heading %d/%d  Enter: jump  Esc: close",
+                selected_index + 1, outline->count);
+    } else {
+        fputs(" No headings  Esc: close", stdout);
+    }
+    term_style_freset(stdout);
+    fflush(stdout);
+}
+
 void md_viewport_draw_help(md_view_state_t *vs) {
     static const char *help_md =
         "## simple-md\n"
@@ -409,6 +458,7 @@ void md_viewport_draw_help(md_view_state_t *vs) {
         "| / | Search forward |\n"
         "| n | Next search match |\n"
         "| N | Previous search match |\n"
+        "| o | Open heading outline |\n"
         "| h / ? | This help screen |\n"
         "| q / Escape | Quit |\n"
         "\n"

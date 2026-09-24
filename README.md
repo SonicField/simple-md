@@ -58,6 +58,7 @@ Navigation:
 | `/` | Search forward |
 | `n` | Go to the next search match, wrapping at the end |
 | `N` | Go to the previous search match, wrapping at the beginning |
+| `o` | Open the heading outline; select with arrows or `j`/`k` |
 | `h` / `?` | Show help |
 | `q` / Escape | Quit |
 

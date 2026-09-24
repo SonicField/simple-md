@@ -3,6 +3,7 @@
 
 #include "md_render.h"
 #include "md_search.h"
+#include "md_outline.h"
 
 typedef struct {
     int scroll_offset;   /* topmost visible line, >= 0 */
@@ -53,6 +54,11 @@ void md_viewport_reveal_line(md_view_state_t *vs, int line);
 /* Draw an editable search prompt in the status row. */
 void md_viewport_draw_search_prompt(const md_view_state_t *vs,
                                     const char *query);
+
+/* Draw the heading picker with selected_index highlighted. */
+void md_viewport_draw_outline(const md_view_state_t *vs,
+                              const md_outline_t *outline,
+                              int selected_index);
 
 /* Draw a help screen showing key bindings. */
 void md_viewport_draw_help(md_view_state_t *vs);

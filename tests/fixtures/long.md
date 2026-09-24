@@ -24,6 +24,10 @@ Line 11
 
 Line 12
 
+## Middle Section
+
+TARGET_SECTION_BODY
+
 Line 13
 
 Line 14
@@ -43,6 +47,8 @@ Line 20
 Line 21
 
 Line 22
+
+### Final Section
 
 Line 23
 

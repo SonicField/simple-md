@@ -12,6 +12,7 @@
 #include "md_render.h"
 #include "md_output.h"
 #include "md_search.h"
+#include "md_outline.h"
 #include "md_viewport.h"
 #include "md_terminal.h"
 #include "sm_assert.h"
@@ -74,6 +75,38 @@ static int read_search_query(md_view_state_t *view, char *query, size_t capacity
         } else if (event.key == MD_KEY_TEXT && length + 1 < capacity) {
             query[length++] = (char)event.byte;
             query[length] = '\0';
+        }
+    }
+}
+
+/* Return one when the user asks to quit the application. */
+static int browse_outline(md_view_state_t *view, const md_outline_t *outline) {
+    int selected = 0;
+    for (int i = 0; i < outline->count; i++) {
+        if (outline->entries[i].line <= view->scroll_offset) selected = i;
+    }
+
+    for (;;) {
+        md_viewport_draw_outline(view, outline, selected);
+        md_input_event_t event = md_terminal_read_event();
+        if (event.key == MD_KEY_ESCAPE) return 0;
+        if (event.key == MD_KEY_EOF) return 1;
+        if (event.key == MD_KEY_ENTER) {
+            if (outline->count > 0) {
+                view->scroll_offset = outline->entries[selected].line;
+                md_viewport_scroll_down(view, 0); /* clamp near document end */
+            }
+            return 0;
+        }
+        if (event.key == MD_KEY_UP ||
+            (event.key == MD_KEY_TEXT && event.byte == 'k')) {
+            if (selected > 0) selected--;
+        } else if (event.key == MD_KEY_DOWN ||
+                   (event.key == MD_KEY_TEXT && event.byte == 'j')) {
+            if (selected + 1 < outline->count) selected++;
+        } else if (event.key == MD_KEY_TEXT &&
+                   (event.byte == 'q' || event.byte == 'Q')) {
+            return 1;
         }
     }
 }
@@ -260,8 +293,11 @@ int main(int argc, char *argv[]) {
     /* 6. Initialize viewport and draw initial screen */
     md_view_state_t vs;
     md_search_t search;
+    md_outline_t outline;
     memset(&vs, 0, sizeof(vs));
     md_search_init(&search);
+    md_outline_init(&outline);
+    md_outline_build(&outline, doc, layout);
     md_viewport_init(&vs, rows, cols, layout->line_count);
     md_viewport_draw_search(&vs, layout, &search);
     fflush(stdout);
@@ -273,6 +309,7 @@ int main(int argc, char *argv[]) {
             md_terminal_get_size(&rows, &cols);
             md_layout_destroy(layout);
             layout = md_render(doc, cols);
+            md_outline_build(&outline, doc, layout);
             int saved_offset = vs.scroll_offset;
             md_viewport_init(&vs, rows, cols, layout->line_count);
             vs.scroll_offset = saved_offset;
@@ -347,6 +384,10 @@ int main(int argc, char *argv[]) {
                 md_viewport_reveal_line(&vs, match->line);
                 break;
             }
+            if (event.byte == 'o') {
+                if (browse_outline(&vs, &outline)) goto done;
+                break;
+            }
             if (event.byte == 'h' || event.byte == 'H' || event.byte == '?') {
                 md_viewport_draw_help(&vs);
                 while (1) {
@@ -378,6 +419,7 @@ int main(int argc, char *argv[]) {
 
 done:
     md_terminal_leave_raw();
+    md_outline_destroy(&outline);
     md_search_destroy(&search);
     md_layout_destroy(layout);
     md_block_destroy(doc);

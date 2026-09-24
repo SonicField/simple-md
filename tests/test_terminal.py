@@ -147,6 +147,12 @@ def main() -> int:
     previous_output = run_viewer(b"/Line\nNq", fixture=LONG_FIXTURE)
     previous_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", previous_output)
     assert b"25/25" in previous_text, "N did not wrap to the final match"
+    outline_output = run_viewer(b"oj\nq", fixture=LONG_FIXTURE)
+    outline_text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", outline_output)
+    assert b"Document outline" in outline_text, "outline was not displayed"
+    assert b"TARGET_SECTION_BODY" in outline_text, (
+        "selecting an outline entry did not reveal its section"
+    )
     print("test_terminal: PASS")
     return 0
 
