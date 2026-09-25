@@ -16,7 +16,7 @@ BUILD_DIR = build
 ANALYZE_TARGET = $(BUILD_DIR)/simple-md-analyze
 
 HIGHLIGHT_SOURCES = src/md_highlight.c src/md_lang_c.c src/md_lang_js.c \
-	src/md_lang_py.c src/md_lang_pas.c
+	src/md_lang_py.c src/md_lang_pas.c src/md_lang_sh.c
 ALLOC_SOURCE = src/sm_alloc.c
 
 SOURCES = src/main.c src/md_ast.c src/md_parse.c src/md_render.c \

@@ -24,6 +24,7 @@ typedef enum {
     MD_HL_NUMBER,       /* Numeric literal */
     MD_HL_COMMENT,      /* Comment (line or block) */
     MD_HL_PREPROC,      /* Preprocessor directive */
+    MD_HL_VARIABLE,     /* Shell-style variable expansion */
     MD_HL_OPERATOR,     /* Operator / punctuation */
 } md_hl_token_t;
 

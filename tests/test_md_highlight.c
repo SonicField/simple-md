@@ -152,6 +152,17 @@ TEST(find_lang_rust_alias) {
     T_ASSERT(alias == lang, "rs should resolve to the Rust tokeniser");
 }
 
+TEST(find_lang_shell_family) {
+    const md_lang_t *lang = md_highlight_find_lang("sh");
+    T_ASSERT(lang != NULL, "find_lang('sh') should return non-NULL");
+
+    const char *aliases[] = { "bash", "zsh", "ksh", "shell", NULL };
+    for (int i = 0; aliases[i] != NULL; i++) {
+        T_ASSERT(md_highlight_find_lang(aliases[i]) == lang,
+                 "%s should resolve to the shell tokeniser", aliases[i]);
+    }
+}
+
 /* ================================================================
  * 2. C TOKENISATION
  *
@@ -432,6 +443,14 @@ TEST(token_style_preproc) {
     T_ASSERT(s != NULL, "token_style(PREPROC) should return non-NULL");
     T_ASSERT(s->fg == 183,
              "PREPROC fg should be 183, got %d", s->fg);
+}
+
+TEST(token_style_variable) {
+    const term_style_t *variable = md_highlight_token_style(MD_HL_VARIABLE);
+    const term_style_t *preproc = md_highlight_token_style(MD_HL_PREPROC);
+    T_ASSERT(variable != NULL, "token_style(VARIABLE) should return non-NULL");
+    T_ASSERT(variable == preproc,
+             "shell variables should reuse the preprocessor accent style");
 }
 
 TEST(token_style_normal) {
@@ -920,6 +939,79 @@ TEST(tokenise_rust_raw_string) {
 }
 
 /* ================================================================
+ * 17. BOURNE-SHELL TOKENISATION
+ * ================================================================ */
+
+TEST(tokenise_shell_control_words) {
+    const md_lang_t *lang = md_highlight_find_lang("bash");
+    T_ASSERT(lang != NULL, "Bash language not found");
+
+    const char *line = "if command; then echo ok; fi";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, "if", MD_HL_KEYWORD),
+             "'if' should be tagged as a shell KEYWORD");
+    T_ASSERT(has_token_at(line, spans, n, "then", MD_HL_KEYWORD),
+             "'then' should be tagged as a shell KEYWORD");
+    T_ASSERT(has_token_at(line, spans, n, "fi", MD_HL_KEYWORD),
+             "'fi' should be tagged as a shell KEYWORD");
+}
+
+TEST(tokenise_shell_variables) {
+    const md_lang_t *lang = md_highlight_find_lang("sh");
+    T_ASSERT(lang != NULL, "shell language not found");
+
+    const char *line = "echo $HOME ${USER:-unknown} $?";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, "$HOME", MD_HL_VARIABLE),
+             "$HOME should be tagged as a VARIABLE");
+    T_ASSERT(has_token_at(line, spans, n, "${USER:-unknown}", MD_HL_VARIABLE),
+             "a braced expansion should be tagged as a VARIABLE");
+    T_ASSERT(has_token_at(line, spans, n, "$?", MD_HL_VARIABLE),
+             "a special parameter should be tagged as a VARIABLE");
+}
+
+TEST(tokenise_shell_comment_boundary) {
+    const md_lang_t *lang = md_highlight_find_lang("zsh");
+    T_ASSERT(lang != NULL, "Zsh alias not found");
+
+    const char *comment_line = "echo value # explanation";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(comment_line, &ctx, spans, MAX_SPANS);
+    T_ASSERT(has_token_at(comment_line, spans, n, "# explanation", MD_HL_COMMENT),
+             "a word-boundary '#' should start a shell comment");
+
+    const char *word_line = "echo value#fragment";
+    ctx = MD_HL_CTX_GROUND;
+    n = lang->tokenise(word_line, &ctx, spans, MAX_SPANS);
+    T_ASSERT(find_span_with_token(spans, n, MD_HL_COMMENT) < 0,
+             "'#' within a shell word must not start a comment");
+}
+
+TEST(tokenise_shell_quotes_and_pipeline) {
+    const md_lang_t *lang = md_highlight_find_lang("ksh");
+    T_ASSERT(lang != NULL, "Ksh alias not found");
+
+    const char *line = "printf '%s\\n' value | sed \"s/x/y/\" > out";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, "'%s\\n'", MD_HL_STRING),
+             "single-quoted shell text should be a STRING");
+    T_ASSERT(has_token_at(line, spans, n, "\"s/x/y/\"", MD_HL_STRING),
+             "double-quoted shell text should be a STRING");
+    T_ASSERT(has_token_at(line, spans, n, "|", MD_HL_OPERATOR),
+             "a pipeline should be tagged as an OPERATOR");
+}
+
+/* ================================================================
  * MAIN
  * ================================================================ */
 
@@ -936,6 +1028,7 @@ int main(void) {
     RUN(find_lang_pas);
     RUN(find_lang_java);
     RUN(find_lang_rust_alias);
+    RUN(find_lang_shell_family);
 
     printf("\nC tokenisation:\n");
     RUN(tokenise_c_keyword);
@@ -962,6 +1055,7 @@ int main(void) {
     RUN(token_style_type);
     RUN(token_style_number);
     RUN(token_style_preproc);
+    RUN(token_style_variable);
     RUN(token_style_normal);
 
     printf("\nJavaScript tokenisation:\n");
@@ -1010,6 +1104,12 @@ int main(void) {
     RUN(tokenise_rust_keywords_and_types);
     RUN(tokenise_rust_lifetime_is_not_string);
     RUN(tokenise_rust_raw_string);
+
+    printf("\nBourne-shell tokenisation:\n");
+    RUN(tokenise_shell_control_words);
+    RUN(tokenise_shell_variables);
+    RUN(tokenise_shell_comment_boundary);
+    RUN(tokenise_shell_quotes_and_pipeline);
 
     printf("\n=================\n");
     printf("%d passed, %d failed, %d total\n", g_pass, g_fail, g_pass + g_fail);
