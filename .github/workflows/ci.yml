@@ -9,10 +9,17 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, ${{ matrix.cc }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        cc: [gcc, clang]
+        include:
+          - os: ubuntu-latest
+            cc: gcc
+          - os: ubuntu-latest
+            cc: clang
+          - os: macos-latest
+            cc: clang
     env:
       CC: ${{ matrix.cc }}
     steps:
