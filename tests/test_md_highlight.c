@@ -139,6 +139,12 @@ TEST(find_lang_pas) {
     T_ASSERT(lang->tokenise != NULL, "Pascal language should have a tokeniser");
 }
 
+TEST(find_lang_java) {
+    const md_lang_t *lang = md_highlight_find_lang("java");
+    T_ASSERT(lang != NULL, "find_lang('java') should return non-NULL");
+    T_ASSERT(lang->tokenise != NULL, "Java should have a tokeniser");
+}
+
 /* ================================================================
  * 2. C TOKENISATION
  *
@@ -823,6 +829,40 @@ TEST(tokenise_ts_keywords) {
 }
 
 /* ================================================================
+ * 15. JAVA TOKENISATION
+ * ================================================================ */
+
+TEST(tokenise_java_keywords_and_types) {
+    const md_lang_t *lang = md_highlight_find_lang("java");
+    T_ASSERT(lang != NULL, "Java language not found");
+
+    const char *line = "public class App { private String name; }";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, "public", MD_HL_KEYWORD),
+             "'public' should be tagged as KEYWORD in Java");
+    T_ASSERT(has_token_at(line, spans, n, "class", MD_HL_KEYWORD),
+             "'class' should be tagged as KEYWORD in Java");
+    T_ASSERT(has_token_at(line, spans, n, "String", MD_HL_TYPE),
+             "'String' should be tagged as TYPE in Java");
+}
+
+TEST(tokenise_java_has_no_preprocessor) {
+    const md_lang_t *lang = md_highlight_find_lang("java");
+    T_ASSERT(lang != NULL, "Java language not found");
+
+    const char *line = "# not a Java directive";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(find_span_with_token(spans, n, MD_HL_PREPROC) < 0,
+             "Java must not treat '#' as a preprocessor directive");
+}
+
+/* ================================================================
  * MAIN
  * ================================================================ */
 
@@ -837,6 +877,7 @@ int main(void) {
     RUN(find_lang_unknown);
     RUN(find_lang_js_alias);
     RUN(find_lang_pas);
+    RUN(find_lang_java);
 
     printf("\nC tokenisation:\n");
     RUN(tokenise_c_keyword);
@@ -902,6 +943,10 @@ int main(void) {
 
     printf("\nTypeScript tokenisation:\n");
     RUN(tokenise_ts_keywords);
+
+    printf("\nJava tokenisation:\n");
+    RUN(tokenise_java_keywords_and_types);
+    RUN(tokenise_java_has_no_preprocessor);
 
     printf("\n=================\n");
     printf("%d passed, %d failed, %d total\n", g_pass, g_fail, g_pass + g_fail);

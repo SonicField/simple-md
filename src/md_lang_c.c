@@ -1,5 +1,5 @@
 /*
- * md_lang_c.c — C and C++ language definitions for syntax highlighting.
+ * md_lang_c.c — C-family language definitions for syntax highlighting.
  *
  * Each language has a self-contained tokeniser with its own keyword
  * and type tables.  Arrays are sorted alphabetically for binary search.
@@ -285,4 +285,48 @@ const md_lang_t md_lang_cpp = {
     .name     = "cpp",
     .aliases  = cpp_aliases,
     .tokenise = cpp_tokenise
+};
+
+/* ── Java ─────────────────────────────────────────────────────────
+ *
+ * Java's lexical structure is close to C: it uses the same comment and
+ * string forms, but has no preprocessor. Keeping it on the shared scanner
+ * avoids a nearly identical language-specific implementation.
+ */
+
+static const char *java_keywords[] = {
+    "abstract", "assert", "break", "case", "catch",
+    "class", "const", "continue", "default", "do",
+    "else", "enum", "exports", "extends", "false",
+    "final", "finally", "for", "goto", "if",
+    "implements", "import", "instanceof", "interface", "module",
+    "native", "new", "null", "open", "opens",
+    "package", "permits", "private", "protected", "provides",
+    "public", "record", "requires", "return", "sealed",
+    "static", "strictfp", "super", "switch", "synchronized",
+    "this", "throw", "throws", "to", "transient",
+    "transitive", "true", "try", "uses", "var",
+    "volatile", "when", "while", "with", "yield",
+    NULL
+};
+
+static const char *java_types[] = {
+    "Boolean", "Byte", "Character", "Double", "Float",
+    "Integer", "Long", "Object", "Short", "String",
+    "Void", "boolean", "byte", "char", "double",
+    "float", "int", "long", "short", "void",
+    NULL
+};
+
+static int java_tokenise(const char *line, md_hl_context_t *ctx,
+                          md_hl_span_t *spans, int max_spans) {
+    return c_family_tokenise(line, ctx, spans, max_spans,
+                             java_keywords, java_types,
+                             "//", "/*", "*/", NULL);
+}
+
+const md_lang_t md_lang_java = {
+    .name     = "java",
+    .aliases  = NULL,
+    .tokenise = java_tokenise
 };
