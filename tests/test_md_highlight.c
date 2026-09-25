@@ -145,6 +145,13 @@ TEST(find_lang_java) {
     T_ASSERT(lang->tokenise != NULL, "Java should have a tokeniser");
 }
 
+TEST(find_lang_rust_alias) {
+    const md_lang_t *lang = md_highlight_find_lang("rust");
+    const md_lang_t *alias = md_highlight_find_lang("rs");
+    T_ASSERT(lang != NULL, "find_lang('rust') should return non-NULL");
+    T_ASSERT(alias == lang, "rs should resolve to the Rust tokeniser");
+}
+
 /* ================================================================
  * 2. C TOKENISATION
  *
@@ -863,6 +870,56 @@ TEST(tokenise_java_has_no_preprocessor) {
 }
 
 /* ================================================================
+ * 16. RUST TOKENISATION
+ * ================================================================ */
+
+TEST(tokenise_rust_keywords_and_types) {
+    const md_lang_t *lang = md_highlight_find_lang("rust");
+    T_ASSERT(lang != NULL, "Rust language not found");
+
+    const char *line = "pub fn parse() -> Result<String, Error>";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, "pub", MD_HL_KEYWORD),
+             "'pub' should be tagged as KEYWORD in Rust");
+    T_ASSERT(has_token_at(line, spans, n, "fn", MD_HL_KEYWORD),
+             "'fn' should be tagged as KEYWORD in Rust");
+    T_ASSERT(has_token_at(line, spans, n, "Result", MD_HL_TYPE),
+             "'Result' should be tagged as TYPE in Rust");
+}
+
+TEST(tokenise_rust_lifetime_is_not_string) {
+    const md_lang_t *lang = md_highlight_find_lang("rust");
+    T_ASSERT(lang != NULL, "Rust language not found");
+
+    const char *line = "fn borrow<'a>(value: &'a str)";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(find_span_with_token(spans, n, MD_HL_STRING) < 0,
+             "Rust lifetime 'a must not be tagged as a string");
+    T_ASSERT(has_token_at(line, spans, n, "str", MD_HL_TYPE),
+             "'str' should remain visible as a TYPE after a lifetime");
+}
+
+TEST(tokenise_rust_raw_string) {
+    const md_lang_t *lang = md_highlight_find_lang("rs");
+    T_ASSERT(lang != NULL, "Rust rs alias not found");
+
+    const char *line = "let pattern = r#\"a \\\"quoted\\\" value\"#;";
+    const char *raw = "r#\"a \\\"quoted\\\" value\"#";
+    md_hl_context_t ctx = MD_HL_CTX_GROUND;
+    md_hl_span_t spans[MAX_SPANS];
+    int n = lang->tokenise(line, &ctx, spans, MAX_SPANS);
+
+    T_ASSERT(has_token_at(line, spans, n, raw, MD_HL_STRING),
+             "a Rust raw string should be one STRING span");
+}
+
+/* ================================================================
  * MAIN
  * ================================================================ */
 
@@ -878,6 +935,7 @@ int main(void) {
     RUN(find_lang_js_alias);
     RUN(find_lang_pas);
     RUN(find_lang_java);
+    RUN(find_lang_rust_alias);
 
     printf("\nC tokenisation:\n");
     RUN(tokenise_c_keyword);
@@ -947,6 +1005,11 @@ int main(void) {
     printf("\nJava tokenisation:\n");
     RUN(tokenise_java_keywords_and_types);
     RUN(tokenise_java_has_no_preprocessor);
+
+    printf("\nRust tokenisation:\n");
+    RUN(tokenise_rust_keywords_and_types);
+    RUN(tokenise_rust_lifetime_is_not_string);
+    RUN(tokenise_rust_raw_string);
 
     printf("\n=================\n");
     printf("%d passed, %d failed, %d total\n", g_pass, g_fail, g_pass + g_fail);

@@ -51,6 +51,47 @@ static int emit(md_hl_span_t *spans, int *n, int max,
     return 1;
 }
 
+/* Return the length of a Rust raw string beginning at pos, or zero when the
+ * input is not a raw string. Unterminated strings consume the rest of the
+ * line, which is the least surprising result for a lightweight highlighter. */
+static int rust_raw_string_len(const char *line, int pos, int slen) {
+    int start = pos;
+    if (pos < slen && line[pos] == 'b') pos++;
+    if (pos >= slen || line[pos] != 'r') return 0;
+    pos++;
+
+    int hashes = 0;
+    while (pos < slen && line[pos] == '#') {
+        hashes++;
+        pos++;
+    }
+    if (pos >= slen || line[pos] != '"') return 0;
+    pos++;
+
+    for (int i = pos; i < slen; i++) {
+        if (line[i] != '"') continue;
+        int matched = 0;
+        while (matched < hashes && i + 1 + matched < slen &&
+               line[i + 1 + matched] == '#') matched++;
+        if (matched == hashes) return i + 1 + hashes - start;
+    }
+    return slen - start;
+}
+
+/* Rust lifetimes and labels begin with an apostrophe but have no closing
+ * apostrophe. Distinguishing them prevents the C character-literal rule from
+ * colouring the rest of a signature as a string. */
+static int rust_lifetime_at(const char *line, int pos, int slen) {
+    if (pos + 1 >= slen || line[pos] != '\'' ||
+        !(isalpha((unsigned char)line[pos + 1]) || line[pos + 1] == '_')) {
+        return 0;
+    }
+    int end = pos + 2;
+    while (end < slen &&
+           (isalnum((unsigned char)line[end]) || line[end] == '_')) end++;
+    return end >= slen || line[end] != '\'';
+}
+
 /* ── generic C-family tokeniser ──────────────────────────────────── */
 
 static int c_family_tokenise(const char *line, md_hl_context_t *ctx,
@@ -58,7 +99,7 @@ static int c_family_tokenise(const char *line, md_hl_context_t *ctx,
                               const char **keywords, const char **types,
                               const char *line_comment,
                               const char *block_open, const char *block_close,
-                              const char *preproc_prefix) {
+                              const char *preproc_prefix, int rust_syntax) {
     int slen = (int)strlen(line);
     int n = 0;
     int i = 0;
@@ -111,6 +152,16 @@ static int c_family_tokenise(const char *line, md_hl_context_t *ctx,
     while (i < slen) {
         if (n >= max_spans) break;
 
+        /* Rust raw and byte-raw strings: r"...", r#"..."#, br#"..."#. */
+        if (rust_syntax && (line[i] == 'r' || line[i] == 'b')) {
+            int raw_len = rust_raw_string_len(line, i, slen);
+            if (raw_len > 0) {
+                if (!emit(spans, &n, max_spans, i, raw_len, MD_HL_STRING)) return n;
+                i += raw_len;
+                continue;
+            }
+        }
+
         /* Whitespace */
         if (line[i] == ' ' || line[i] == '\t') {
             int start = i;
@@ -154,7 +205,12 @@ static int c_family_tokenise(const char *line, md_hl_context_t *ctx,
         }
 
         /* String / char literals */
-        if (line[i] == '"' || line[i] == '\'' || line[i] == '`') {
+        if (line[i] == '"' || line[i] == '\'') {
+            if (rust_syntax && rust_lifetime_at(line, i, slen)) {
+                if (!emit(spans, &n, max_spans, i, 1, MD_HL_OPERATOR)) return n;
+                i++;
+                continue;
+            }
             char q = line[i];
             int start = i;
             i++;
@@ -235,7 +291,7 @@ static const char *c_types[] = {
 static int c_tokenise(const char *line, md_hl_context_t *ctx,
                        md_hl_span_t *spans, int max_spans) {
     return c_family_tokenise(line, ctx, spans, max_spans,
-                             c_keywords, c_types, "//", "/*", "*/", "#");
+                             c_keywords, c_types, "//", "/*", "*/", "#", 0);
 }
 
 static const char *c_aliases[] = { "h", NULL };
@@ -276,7 +332,7 @@ static const char *cpp_types[] = {
 static int cpp_tokenise(const char *line, md_hl_context_t *ctx,
                           md_hl_span_t *spans, int max_spans) {
     return c_family_tokenise(line, ctx, spans, max_spans,
-                             cpp_keywords, cpp_types, "//", "/*", "*/", "#");
+                             cpp_keywords, cpp_types, "//", "/*", "*/", "#", 0);
 }
 
 static const char *cpp_aliases[] = { "c++", "cc", "cxx", "hpp", NULL };
@@ -322,11 +378,55 @@ static int java_tokenise(const char *line, md_hl_context_t *ctx,
                           md_hl_span_t *spans, int max_spans) {
     return c_family_tokenise(line, ctx, spans, max_spans,
                              java_keywords, java_types,
-                             "//", "/*", "*/", NULL);
+                             "//", "/*", "*/", NULL, 0);
 }
 
 const md_lang_t md_lang_java = {
     .name     = "java",
     .aliases  = NULL,
     .tokenise = java_tokenise
+};
+
+/* ── Rust ─────────────────────────────────────────────────────────
+ *
+ * Rust shares C-style comments, strings, identifiers, and operators. The
+ * shared scanner adds only the two visible exceptions that matter most in
+ * Markdown examples: lifetimes and same-line raw strings.
+ */
+
+static const char *rust_keywords[] = {
+    "Self", "abstract", "as", "async", "await",
+    "become", "box", "break", "const", "continue",
+    "crate", "do", "dyn", "else", "enum",
+    "extern", "false", "final", "fn", "for",
+    "if", "impl", "in", "let", "loop",
+    "macro", "match", "mod", "move", "mut",
+    "override", "priv", "pub", "ref", "return",
+    "self", "static", "struct", "super", "trait",
+    "true", "try", "type", "typeof", "union",
+    "unsafe", "unsized", "use", "virtual", "where",
+    "while", "yield", NULL
+};
+
+static const char *rust_types[] = {
+    "Box", "Option", "Result", "String", "Vec",
+    "bool", "char", "f32", "f64", "i128",
+    "i16", "i32", "i64", "i8", "isize",
+    "str", "u128", "u16", "u32", "u64",
+    "u8", "usize", NULL
+};
+
+static int rust_tokenise(const char *line, md_hl_context_t *ctx,
+                          md_hl_span_t *spans, int max_spans) {
+    return c_family_tokenise(line, ctx, spans, max_spans,
+                             rust_keywords, rust_types,
+                             "//", "/*", "*/", NULL, 1);
+}
+
+static const char *rust_aliases[] = { "rs", NULL };
+
+const md_lang_t md_lang_rust = {
+    .name     = "rust",
+    .aliases  = rust_aliases,
+    .tokenise = rust_tokenise
 };

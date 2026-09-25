@@ -17,13 +17,15 @@
 extern const md_lang_t md_lang_c;
 extern const md_lang_t md_lang_cpp;
 extern const md_lang_t md_lang_java;
+extern const md_lang_t md_lang_rust;
 extern const md_lang_t md_lang_js;
 extern const md_lang_t md_lang_ts;
 extern const md_lang_t md_lang_py;
 extern const md_lang_t md_lang_pas;
 
 static const md_lang_t *lang_registry[] = {
-    &md_lang_c, &md_lang_cpp, &md_lang_java, &md_lang_js, &md_lang_ts,
+    &md_lang_c, &md_lang_cpp, &md_lang_java, &md_lang_rust,
+    &md_lang_js, &md_lang_ts,
     &md_lang_py, &md_lang_pas, NULL
 };
 
