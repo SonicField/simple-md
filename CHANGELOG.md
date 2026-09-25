@@ -4,6 +4,10 @@
 
 - Harden required parser and renderer allocations and make GCC static analysis
   a CI release gate.
+- Add lightweight Java and Rust syntax highlighting through the existing
+  C-family scanner.
+- Add one shared syntax highlighter for POSIX-style sh, Bash, Zsh, and Ksh
+  code fences.
 
 ## 0.2.0 — 2026-09-24
 

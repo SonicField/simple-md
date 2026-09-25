@@ -88,7 +88,7 @@ results wrap at either end of the document.
 - Paragraph reflow and hard line breaks
 - Bold, italic, bold italic, and inline code
 - Fenced code blocks
-- Syntax highlighting for C, C++, JavaScript, TypeScript, Python, and Pascal
+- Lightweight syntax highlighting for selected programming languages
 - GFM-style pipe tables with alignment and Unicode borders
 - Ordered and unordered lists, nested to three levels
 - Blockquotes, links, and horizontal rules
@@ -97,6 +97,38 @@ results wrap at either end of the document.
 
 This is a deliberately focused Markdown parser, not a complete CommonMark
 implementation. Unsupported constructs are rendered as ordinary text.
+
+### Syntax highlighting
+
+`simple-md` uses small built-in, line-oriented scanners rather than embedding
+a compiler parser or a large highlighting framework. This keeps the binary
+self-contained and makes highlighting fast enough for ephemeral Markdown,
+while accepting that it will not understand every construct in every language.
+
+The supported code-fence labels are:
+
+| Family | Fence labels |
+|---|---|
+| C | `c`, `h` |
+| C++ | `cpp`, `c++`, `cc`, `cxx`, `hpp` |
+| Java | `java` |
+| Rust | `rust`, `rs` |
+| JavaScript | `js`, `javascript` |
+| TypeScript | `ts`, `typescript` |
+| Python | `py`, `python` |
+| Pascal | `pas`, `pascal`, `delphi`, `honest` |
+| Bourne shells | `sh`, `bash`, `zsh`, `ksh`, `shell` |
+
+C, C++, Java, and Rust share a C-family scanner with separate keyword and type
+tables. JavaScript and TypeScript likewise share a scanner. The Bourne-shell
+scanner covers their common visible syntax; it does not claim compatibility
+with unrelated shells such as Fish or PowerShell.
+
+The highlighters colour common keywords, types, strings, numbers, comments,
+variables, and operators. They do not validate programs or cover every
+dialect-specific edge case. An unknown fence label still renders as a normal
+code block, simply without syntax colouring. This limited, graceful model is
+intentional: `simple-md` remains simple.
 
 ## Tests
 

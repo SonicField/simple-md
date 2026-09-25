@@ -16,6 +16,7 @@
  *   gcc -Wall -Wextra -Wshadow -Werror -std=c11 -D_POSIX_C_SOURCE=200809L \
  *       -Isrc -o test_md_highlight tests/test_md_highlight.c \
  *       md_highlight.c md_lang_c.c md_lang_js.c md_lang_py.c md_lang_pas.c \
+ *       md_lang_sh.c \
  *       md_style.c src/term_style.c \
  *       && ./test_md_highlight
  *
@@ -23,6 +24,7 @@
  *   clang -fsanitize=address,undefined -g -O1 \
  *       -Isrc -o test_md_highlight tests/test_md_highlight.c \
  *       md_highlight.c md_lang_c.c md_lang_js.c md_lang_py.c md_lang_pas.c \
+ *       md_lang_sh.c \
  *       md_style.c src/term_style.c \
  *       && ./test_md_highlight
  */
