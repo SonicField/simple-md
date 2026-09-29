@@ -26,6 +26,25 @@ static int raw_active = 0;
 static int tty_fd = -1;  /* fd for /dev/tty — keyboard input */
 static volatile sig_atomic_t resize_flag = 0;
 
+/* Write a complete terminal control sequence, retrying interrupted and short
+ * writes. Cleanup callers deliberately treat failure as best-effort, but the
+ * return value makes that policy explicit to fortified C libraries. */
+static int write_all(int fd, const char *buffer, size_t length)
+{
+    size_t offset = 0;
+    while (offset < length) {
+        ssize_t written = write(fd, buffer + offset, length - offset);
+        if (written > 0) {
+            offset += (size_t)written;
+            continue;
+        }
+        if (written < 0 && errno == EINTR)
+            continue;
+        return -1;
+    }
+    return 0;
+}
+
 /* ---- signal handlers ---- */
 
 static void sigwinch_handler(int sig)
@@ -71,8 +90,8 @@ int md_terminal_enter_raw(void)
     }
 
     /* Alternate screen, hide cursor. */
-    if (write(STDOUT_FILENO, "\033[?1049h", 8) == -1 ||
-        write(STDOUT_FILENO, "\033[?25l", 6) == -1) {
+    if (write_all(STDOUT_FILENO, "\033[?1049h", 8) == -1 ||
+        write_all(STDOUT_FILENO, "\033[?25l", 6) == -1) {
         tcsetattr(tty_fd, TCSAFLUSH, &orig_termios);
         close(tty_fd);
         tty_fd = -1;
@@ -103,8 +122,8 @@ void md_terminal_leave_raw(void)
     raw_active = 0;
 
     /* Show cursor, leave alternate screen. */
-    write(STDOUT_FILENO, "\033[?25h", 6);
-    write(STDOUT_FILENO, "\033[?1049l", 8);
+    (void)write_all(STDOUT_FILENO, "\033[?25h", 6);
+    (void)write_all(STDOUT_FILENO, "\033[?1049l", 8);
 
     if (tty_fd >= 0) {
         tcsetattr(tty_fd, TCSAFLUSH, &orig_termios);
