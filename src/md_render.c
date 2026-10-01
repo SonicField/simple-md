@@ -153,7 +153,9 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
         term_style_t style = parent_style;
 
         switch (inl->type) {
-        case MD_INLINE_TEXT: {
+        case MD_INLINE_TEXT:
+        case MD_INLINE_HTML:
+        case MD_INLINE_CODE_TEXT: {
             if (!inl->text) break;
             const char *s = inl->text;
             int len = (int)strlen(s);
@@ -231,6 +233,15 @@ static void collect_inline_frags(md_inline_node_t *inl, term_style_t parent_styl
                 collect_inline_frags(inl->children, ls, inl->url,
                                      frags, count, cap);
             }
+            break;
+        }
+
+        case MD_INLINE_IMAGE: {
+            /* A terminal cannot display the bitmap; render its alternative text
+             * and retain the image target as an OSC 8 link. */
+            if (inl->children)
+                collect_inline_frags(inl->children, parent_style, inl->url,
+                                     frags, count, cap);
             break;
         }
 
@@ -830,6 +841,26 @@ static void render_blockquote(md_layout_t *layout, md_block_node_t *bq,
     free(inner);
 }
 
+static void render_raw_html(md_layout_t *layout, md_block_node_t *block,
+                            int block_id) {
+    const char *raw = block->raw ? block->raw : "";
+    const char *start = raw;
+    for (const char *p = raw; ; p++) {
+        if (*p == '\n' || *p == '\0') {
+            md_display_line_t line;
+            memset(&line, 0, sizeof(line));
+            line.source_block = block_id;
+            int len = (int)(p - start);
+            if (len > 0)
+                line_add_span(&line, start, len, MD_STYLE_BODY,
+                              utf8_display_width(start, len));
+            md_layout_add_line(layout, &line);
+            if (*p == '\0') break;
+            start = p + 1;
+        }
+    }
+}
+
 /* ── main render function ────────────────────────────────────────── */
 
 /* Check if last line in layout is blank */
@@ -906,6 +937,11 @@ md_layout_t *md_render(md_block_node_t *root, int terminal_width) {
             ensure_blank_before(layout, block_id);
             render_blockquote(layout, child, terminal_width, block_id);
             md_layout_add_blank(layout, block_id);
+            break;
+
+        case MD_BLOCK_HTML:
+            ensure_blank_before(layout, block_id);
+            render_raw_html(layout, child, block_id);
             break;
 
         default:

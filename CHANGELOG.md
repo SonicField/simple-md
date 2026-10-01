@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Implement CommonMark 0.31.2 parsing through a bundled, dependency-free MD4C
+  parser and an adapter to the existing terminal AST.
+- Add the complete 652-example CommonMark 0.31.2 conformance suite to
+  `make test`, plus focused adapter regressions for headings, indented code,
+  reference links, images, raw HTML, and entities.
+- Document why we believe the parser is CommonMark 0.31.2 compliant, including
+  the evidence, scope, terminal-rendering limitations, and falsification rule.
 - Harden required parser and renderer allocations and make GCC static analysis
   a CI release gate.
 - Add lightweight Java and Rust syntax highlighting through the existing

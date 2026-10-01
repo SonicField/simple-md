@@ -91,6 +91,7 @@ void md_inline_destroy(md_inline_node_t *node) {
         md_inline_node_t *next = node->next;
         free(node->text);
         free(node->url);
+        free(node->title);
         md_inline_destroy(node->children);
         free(node);
         node = next;

@@ -3,7 +3,7 @@ PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 DESTDIR ?=
 
-CPPFLAGS ?= -Isrc
+CPPFLAGS ?= -Isrc -Ithird_party/md4c
 BASE_CFLAGS = -Wall -Wextra -Wshadow -Werror -std=c11 \
 	-D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 CFLAGS ?= -O2
@@ -18,8 +18,9 @@ ANALYZE_TARGET = $(BUILD_DIR)/simple-md-analyze
 HIGHLIGHT_SOURCES = src/md_highlight.c src/md_lang_c.c src/md_lang_js.c \
 	src/md_lang_py.c src/md_lang_pas.c src/md_lang_sh.c
 ALLOC_SOURCE = src/sm_alloc.c
+COMMONMARK_SOURCES = third_party/md4c/md4c.c third_party/md4c/entity.c
 
-SOURCES = src/main.c src/md_ast.c src/md_parse.c src/md_render.c \
+SOURCES = src/main.c src/md_ast.c src/md_parse.c $(COMMONMARK_SOURCES) src/md_render.c \
 	src/md_table.c src/md_style.c src/md_viewport.c src/md_terminal.c \
 	src/md_output.c src/md_search.c src/md_outline.c $(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c \
 	src/bidi.c src/term_link.c $(ALLOC_SOURCE)
@@ -31,8 +32,9 @@ TEST_BINS = $(BUILD_DIR)/test_md_ast $(BUILD_DIR)/test_md_parse \
 
 TEST_BINS += $(BUILD_DIR)/test_md_outline
 TEST_BINS += $(BUILD_DIR)/test_term_link
+COMMONMARK_TEST = $(BUILD_DIR)/commonmark-render
 
-.PHONY: all clean install test unit integration debug sanitize analyze
+.PHONY: all clean install test unit commonmark integration debug sanitize analyze
 
 all: $(TARGET)
 
@@ -45,22 +47,22 @@ $(BUILD_DIR):
 $(BUILD_DIR)/test_md_ast: tests/test_md_ast.c src/md_ast.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
-$(BUILD_DIR)/test_md_parse: tests/test_md_parse.c src/md_ast.c src/md_parse.c $(ALLOC_SOURCE) | $(BUILD_DIR)
+$(BUILD_DIR)/test_md_parse: tests/test_md_parse.c src/md_ast.c src/md_parse.c $(COMMONMARK_SOURCES) $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_render: tests/test_md_render.c src/md_render.c src/md_parse.c \
-	src/md_ast.c src/md_style.c src/md_table.c $(HIGHLIGHT_SOURCES) \
+	src/md_ast.c $(COMMONMARK_SOURCES) src/md_style.c src/md_table.c $(HIGHLIGHT_SOURCES) \
 	src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_table: tests/test_md_table.c src/md_table.c src/md_render.c \
-	src/md_parse.c src/md_ast.c src/md_style.c $(HIGHLIGHT_SOURCES) \
+	src/md_parse.c src/md_ast.c $(COMMONMARK_SOURCES) src/md_style.c $(HIGHLIGHT_SOURCES) \
 	src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_md_viewport: tests/test_md_viewport.c src/md_viewport.c \
 	src/md_terminal.c src/md_render.c src/md_parse.c src/md_ast.c \
-	src/md_style.c src/md_table.c src/md_search.c $(HIGHLIGHT_SOURCES) src/term_style.c \
+	$(COMMONMARK_SOURCES) src/md_style.c src/md_table.c src/md_search.c $(HIGHLIGHT_SOURCES) src/term_style.c \
 	src/unicode_width.c src/bidi.c src/term_link.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
@@ -77,20 +79,27 @@ $(BUILD_DIR)/test_md_search: tests/test_md_search.c src/md_search.c $(ALLOC_SOUR
 
 $(BUILD_DIR)/test_md_outline: tests/test_md_outline.c src/md_outline.c \
 	src/md_ast.c src/md_parse.c src/md_render.c src/md_style.c src/md_table.c \
-	$(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
+	$(COMMONMARK_SOURCES) $(HIGHLIGHT_SOURCES) src/term_style.c src/unicode_width.c $(ALLOC_SOURCE) | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
 $(BUILD_DIR)/test_term_link: tests/test_term_link.c src/term_link.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
 
+$(COMMONMARK_TEST): tests/commonmark_render.c third_party/md4c/md4c.c \
+	third_party/md4c/md4c-html.c third_party/md4c/entity.c | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
+
 unit: $(TEST_BINS)
 	@set -e; for test_bin in $(TEST_BINS); do ./$$test_bin; done
+
+commonmark: $(COMMONMARK_TEST)
+	python3 ./tests/test_commonmark.py
 
 integration: $(TARGET)
 	./tests/test_cli.sh
 	python3 ./tests/test_terminal.py
 
-test: unit integration
+test: unit commonmark integration
 
 install: $(TARGET)
 	install -d "$(DESTDIR)$(BINDIR)"
@@ -110,5 +119,5 @@ $(ANALYZE_TARGET): $(SOURCES) | $(BUILD_DIR)
 	$(ANALYZER_CC) $(CPPFLAGS) $(BASE_CFLAGS) $(ANALYZER_CFLAGS) -o $@ $(SOURCES)
 
 clean:
-	rm -f $(TARGET) $(TEST_BINS) $(ANALYZE_TARGET)
+	rm -f $(TARGET) $(TEST_BINS) $(COMMONMARK_TEST) $(ANALYZE_TARGET)
 	rmdir $(BUILD_DIR) 2>/dev/null || true

@@ -20,7 +20,8 @@ typedef enum {
     MD_BLOCK_TABLE,
     MD_BLOCK_TABLE_ROW,
     MD_BLOCK_TABLE_CELL,
-    MD_BLOCK_BLOCKQUOTE
+    MD_BLOCK_BLOCKQUOTE,
+    MD_BLOCK_HTML
 } md_block_type_t;
 
 /* Inline node types */
@@ -32,7 +33,10 @@ typedef enum {
     MD_INLINE_CODE,
     MD_INLINE_LINK,
     MD_INLINE_SOFTBREAK,
-    MD_INLINE_HARDBREAK
+    MD_INLINE_HARDBREAK,
+    MD_INLINE_IMAGE,
+    MD_INLINE_HTML,
+    MD_INLINE_CODE_TEXT
 } md_inline_type_t;
 
 /* Table column alignment */
@@ -45,8 +49,9 @@ typedef enum {
 /* Inline node */
 typedef struct md_inline_node {
     md_inline_type_t type;
-    char *text;                     /* Text content (TEXT, CODE) or NULL */
-    char *url;                      /* Non-NULL only for LINK */
+    char *text;                     /* Textual content or NULL */
+    char *url;                      /* LINK/IMAGE destination or NULL */
+    char *title;                    /* Optional LINK/IMAGE title */
     struct md_inline_node *children; /* Child inlines (BOLD, ITALIC, LINK) */
     struct md_inline_node *next;    /* Sibling linked list */
 } md_inline_node_t;
@@ -54,12 +59,14 @@ typedef struct md_inline_node {
 /* Block node */
 typedef struct md_block_node {
     md_block_type_t type;
-    int level;                      /* Heading level (1-4), list nesting depth */
+    int level;                      /* Heading level (1-6), list nesting depth */
     int ordered;                    /* List: 1=ordered, 0=unordered */
     int start;                      /* Ordered list start number */
+    int is_tight;                   /* CommonMark list tightness */
     int is_header;                  /* Table row: 1=header, 0=body */
+    md_align_t align;               /* Table cell alignment */
     char *language;                 /* CodeFence language tag or NULL */
-    char *raw;                      /* CodeFence raw body text */
+    char *raw;                      /* Code block or raw HTML body text */
     int col_count;                  /* Table: number of columns */
     md_align_t *col_align;          /* Table: alignment per column */
     md_inline_node_t *inlines;      /* Inline content (linked list) */

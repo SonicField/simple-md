@@ -157,6 +157,63 @@ TEST(parse_h4) {
     md_block_destroy(doc);
 }
 
+TEST(parse_commonmark_h6) {
+    md_block_node_t *doc = md_parse("###### Heading Six\n");
+    md_block_node_t *h = doc->children;
+    T_ASSERT(h != NULL, "CommonMark ATX level-six heading should produce a child");
+    T_ASSERT(h->type == MD_BLOCK_HEADING, "level-six ATX heading should be a heading");
+    T_ASSERT(h->level == 6, "heading should be level 6, got %d", h->level);
+    md_block_destroy(doc);
+}
+
+TEST(parse_commonmark_setext_heading) {
+    md_block_node_t *doc = md_parse("Setext\n------\n");
+    md_block_node_t *h = doc->children;
+    T_ASSERT(h && h->type == MD_BLOCK_HEADING, "setext heading should be a heading");
+    T_ASSERT(h->level == 2, "setext heading should be level 2, got %d", h->level);
+    md_block_destroy(doc);
+}
+
+TEST(parse_commonmark_indented_code) {
+    md_block_node_t *doc = md_parse("    indented code\n");
+    md_block_node_t *code = doc->children;
+    T_ASSERT(code && code->type == MD_BLOCK_CODE_FENCE,
+             "indented code should use the code-block AST node");
+    T_ASSERT(code->raw && strcmp(code->raw, "indented code\n") == 0,
+             "indented code body should be preserved, got '%s'", code->raw ? code->raw : "(null)");
+    md_block_destroy(doc);
+}
+
+TEST(parse_commonmark_reference_link) {
+    md_block_node_t *doc = md_parse("[label][ref]\n\n[ref]: /target \"title\"\n");
+    md_inline_node_t *link = doc->children->inlines;
+    T_ASSERT(link && link->type == MD_INLINE_LINK, "reference link should resolve to LINK");
+    T_ASSERT(link->url && strcmp(link->url, "/target") == 0,
+             "reference destination should resolve, got '%s'", link->url ? link->url : "(null)");
+    T_ASSERT(link->title && strcmp(link->title, "title") == 0,
+             "reference title should resolve, got '%s'", link->title ? link->title : "(null)");
+    md_block_destroy(doc);
+}
+
+TEST(parse_commonmark_image_and_html) {
+    md_block_node_t *doc = md_parse("![alt](/image.png)\n\n<div>raw</div>\n");
+    T_ASSERT(doc->children && doc->children->inlines,
+             "image paragraph should contain an inline");
+    T_ASSERT(doc->children->inlines->type == MD_INLINE_IMAGE,
+             "image should produce IMAGE inline");
+    T_ASSERT(doc->children->next && doc->children->next->type == MD_BLOCK_HTML,
+             "raw HTML should produce an HTML block");
+    md_block_destroy(doc);
+}
+
+TEST(parse_commonmark_entity) {
+    md_block_node_t *doc = md_parse("&copy;\n");
+    md_inline_node_t *text = doc->children->inlines;
+    T_ASSERT(text && text->text && strcmp(text->text, "\xc2\xa9") == 0,
+             "named entity should decode to UTF-8 copyright sign");
+    md_block_destroy(doc);
+}
+
 TEST(parse_h5_treated_as_h4) {
     /* Plan §3.1 only supports levels 1-4. ##### should either
      * be treated as H4 or as a paragraph. Either is acceptable. */
@@ -955,6 +1012,12 @@ int main(void) {
     RUN(parse_h2);
     RUN(parse_h3);
     RUN(parse_h4);
+    RUN(parse_commonmark_h6);
+    RUN(parse_commonmark_setext_heading);
+    RUN(parse_commonmark_indented_code);
+    RUN(parse_commonmark_reference_link);
+    RUN(parse_commonmark_image_and_html);
+    RUN(parse_commonmark_entity);
     RUN(parse_h5_treated_as_h4);
 
     printf("\nHorizontal rules:\n");

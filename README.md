@@ -84,19 +84,30 @@ results wrap at either end of the document.
 
 ## Markdown support
 
-- Headings through level four
+We believe the parser is compliant with
+[CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/). This belief is based
+on all 652 examples in the official conformance corpus passing, rather than on
+an assumption that the implementation is correct. The corpus runs as part of
+`make test`; see [CommonMark compliance](docs/COMMONMARK.md) for the evidence,
+scope, and limitations of the claim.
+
+The supported core includes all six heading levels, setext headings, indented
+and fenced code blocks, reference links, images, autolinks, raw HTML, entities,
+and the full CommonMark emphasis and container-block rules.
+
+The terminal renderer additionally provides:
+
 - Paragraph reflow and hard line breaks
-- Bold, italic, bold italic, and inline code
-- Fenced code blocks
 - Lightweight syntax highlighting for selected programming languages
 - GFM-style pipe tables with alignment and Unicode borders
-- Ordered and unordered lists, nested to three levels
-- Blockquotes, links, and horizontal rules
+- Styled headings, emphasis, code, lists, blockquotes, links, and thematic breaks
 - CJK and emoji display widths
 - Bidirectional text rendering for RTL scripts
 
-This is a deliberately focused Markdown parser, not a complete CommonMark
-implementation. Unsupported constructs are rendered as ordinary text.
+Raw HTML is displayed as source in the terminal. Images are represented by
+their alternative text and link target because a text terminal cannot display
+the bitmap itself. GFM pipe tables remain an opt-in parser extension used by
+the reader in addition to the CommonMark core.
 
 ### Syntax highlighting
 
@@ -134,6 +145,7 @@ intentional: `simple-md` remains simple.
 
 ```sh
 make test       # unit suite plus real-PTY CLI checks
+make commonmark # all 652 normative CommonMark 0.31.2 examples
 make sanitize   # unit tests under AddressSanitizer and UBSan
 make analyze    # GCC static analysis; warnings fail the build
 ```
@@ -148,7 +160,7 @@ Python 3 is needed only for this PTY test. The analysis target requires GCC.
 input → parser → AST → styled layout → viewport → terminal
 ```
 
-- `md_parse` and `md_ast` parse block and inline elements.
+- `md_parse` adapts the bundled MD4C parser into the `md_ast` block and inline tree.
 - `md_render`, `md_table`, and `md_highlight` build styled display lines.
 - `md_viewport` handles scrolling, clipping, panning, and BiDi ordering.
 - `md_terminal` owns raw mode, signal handling, terminal sizing, and key input.
@@ -164,5 +176,10 @@ The extraction history and its reproducible checks are documented in
 The filtered Git history retains the original authorship and commit messages.
 
 Released under the MIT License. See [`LICENSE`](LICENSE).
+
+The bundled MD4C parser is also MIT-licensed; its license is retained in
+[`third_party/md4c/LICENSE.md`](third_party/md4c/LICENSE.md). The CommonMark
+test corpus license is retained in
+[`tests/commonmark/LICENSE.md`](tests/commonmark/LICENSE.md).
 
 Release notes are in [`CHANGELOG.md`](CHANGELOG.md).

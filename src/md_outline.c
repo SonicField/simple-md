@@ -20,6 +20,8 @@ static void append_inlines(char **buffer, size_t *length,
         switch (node->type) {
         case MD_INLINE_TEXT:
         case MD_INLINE_CODE:
+        case MD_INLINE_CODE_TEXT:
+        case MD_INLINE_HTML:
             if (node->text != NULL) append_text(buffer, length, node->text);
             break;
         case MD_INLINE_SOFTBREAK:
@@ -30,6 +32,7 @@ static void append_inlines(char **buffer, size_t *length,
         case MD_INLINE_ITALIC:
         case MD_INLINE_BOLD_ITALIC:
         case MD_INLINE_LINK:
+        case MD_INLINE_IMAGE:
             append_inlines(buffer, length, node->children);
             break;
         }
